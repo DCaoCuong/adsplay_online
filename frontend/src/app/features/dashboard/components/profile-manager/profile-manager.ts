@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Button } from '../../../../shared/ui/button/button';
 import { Video, Profile, ApiService } from '../../../../services/api.service';
 import { ConfirmModal } from '../../../../shared/ui/confirm-modal/confirm-modal';
+import { slugify } from '../../../../shared/utils/slugify';
 
 @Component({
   selector: 'app-profile-manager',
@@ -121,7 +122,7 @@ export class ProfileManager {
   }
 
   getPlayerUrl(name: string): string {
-    return `${window.location.origin}/player/${name}`;
+    return `${window.location.origin}/player/${slugify(name)}`;
   }
 
   isOnline(lastSeen?: string): boolean {

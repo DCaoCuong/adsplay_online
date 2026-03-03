@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService, Video, Profile } from '../../services/api.service';
 import { Button } from '../../shared/ui/button/button';
@@ -19,6 +19,7 @@ export class Admin implements OnInit, OnDestroy {
   videos = signal<Video[]>([]);
   profiles = signal<Profile[]>([]);
   loading = signal(false);
+  isUploading = signal(false);
 
   // Modal State
   videoDeletingId = signal<string | null>(null);
@@ -27,6 +28,13 @@ export class Admin implements OnInit, OnDestroy {
   isSystemOnline = signal(true);
   systemInfo = signal<{ uptime: number; localIps: string[] } | null>(null);
   playerUrl = signal('');
+
+  @HostListener('window:beforeunload', ['$event'])
+  unloadNotification($event: any) {
+    if (this.isUploading()) {
+      $event.returnValue = 'Đang tải video lên. Hành động này sẽ hủy quá trình tải lên. Bạn có chắc chắn muốn rời khỏi trang này?';
+    }
+  }
 
   constructor(private api: ApiService) { }
 
@@ -93,11 +101,16 @@ export class Admin implements OnInit, OnDestroy {
   }
 
   onUpload(file: File) {
+    this.isUploading.set(true);
     this.loading.set(true);
     this.api.uploadVideo(file).subscribe({
-      next: () => this.refreshData(),
+      next: () => {
+        this.isUploading.set(false);
+        this.refreshData();
+      },
       error: (err) => {
         console.error('Upload failed', err);
+        this.isUploading.set(false);
         this.loading.set(false);
       }
     });

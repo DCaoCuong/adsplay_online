@@ -1,4 +1,5 @@
-<div #container class="fixed inset-0 bg-black flex items-center justify-center z-50 overflow-hidden font-sans">
+<div #container class="fixed inset-0 bg-black flex items-center justify-center z-50 overflow-hidden font-sans"
+    [class.cursor-none]="isCursorHidden()">
     <!-- Background Gradient Orb -->
     @if (!profile()) {
     <div
@@ -93,7 +94,7 @@
 
 
     <!-- Consolidated Overlay (Unmute / Fullscreen) -->
-    @if (!isFullscreen() || showUnmuteOverlay()) {
+    @if (!isCursorHidden() && (!isFullscreen() || showUnmuteOverlay())) {
     <div (click)="interact()"
         class="absolute inset-0 z-[70] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center cursor-pointer animate-fade-in group/overlay">
         <div

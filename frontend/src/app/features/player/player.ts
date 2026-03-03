@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef, signal, computed, 
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, Profile, Video } from '../../services/api.service';
+import { slugify } from '../../shared/utils/slugify';
 
 @Component({
   selector: 'app-player',
@@ -16,6 +17,9 @@ export class Player implements OnInit, OnDestroy {
   currentVideoIndex = signal(0);
   loading = signal(true);
   showUnmuteOverlay = signal(false);
+  isCursorHidden = signal(false); // Track if cursor should be hidden
+
+  private activityTimeout: any;
 
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
@@ -30,6 +34,13 @@ export class Player implements OnInit, OnDestroy {
   private onFullscreenChangeBound = () => {
     this.zone.run(() => {
       this.isFullscreen.set(!!document.fullscreenElement);
+    });
+  }
+
+  // Mouse move event bound correctly to use Zone
+  private onMouseMoveBound = () => {
+    this.zone.run(() => {
+      this.resetActivityTimer();
     });
   }
 
@@ -54,6 +65,11 @@ export class Player implements OnInit, OnDestroy {
     this.isFullscreen.set(!!document.fullscreenElement);
 
     document.addEventListener('fullscreenchange', this.onFullscreenChangeBound);
+    document.addEventListener('mousemove', this.onMouseMoveBound);
+    document.addEventListener('click', this.onMouseMoveBound);
+
+    // Initial timer start
+    this.resetActivityTimer();
 
     // Start Heartbeat
     this.startHeartbeat();
@@ -61,7 +77,23 @@ export class Player implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     document.removeEventListener('fullscreenchange', this.onFullscreenChangeBound);
+    document.removeEventListener('mousemove', this.onMouseMoveBound);
+    document.removeEventListener('click', this.onMouseMoveBound);
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+    if (this.activityTimeout) clearTimeout(this.activityTimeout);
+  }
+
+  // Reset the 3-second activity timer
+  private resetActivityTimer() {
+    this.isCursorHidden.set(false);
+    if (this.activityTimeout) clearTimeout(this.activityTimeout);
+
+    // Only hide cursor if we are actually playing a profile (to not hide it on the selection screen)
+    if (this.profile()) {
+      this.activityTimeout = setTimeout(() => {
+        this.isCursorHidden.set(true);
+      }, 3000); // 3 seconds of inactivity
+    }
   }
 
   private heartbeatInterval: any;
@@ -101,7 +133,7 @@ export class Player implements OnInit, OnDestroy {
     this.loading.set(true);
     this.api.getProfiles().subscribe({
       next: (profiles) => {
-        const found = profiles.find(p => p.name === name);
+        const found = profiles.find(p => slugify(p.name) === name);
         if (found) {
           // Fetch details to ensure we have the videos
           this.api.getProfile(found.id).subscribe({
@@ -145,7 +177,7 @@ export class Player implements OnInit, OnDestroy {
     } catch (e) {
       console.warn("Fullscreen API error:", e);
     }
-    this.router.navigate(['/player', p.name]);
+    this.router.navigate(['/player', slugify(p.name)]);
   }
 
   private triggerPlay() {
