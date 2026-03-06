@@ -411,12 +411,14 @@ export class Player implements OnInit, OnDestroy {
   private next() {
     const p = this.profile();
 
+    // Safety check if admin deleted ALL videos
     if (!p || !p.videos || p.videos.length === 0) {
       console.warn('Playlist became empty. Redirecting to selection.');
       this.backToSelection();
       return;
     }
 
+    // Apply background playlist updates if detected
     if (this.isPlaylistUpdated) {
       console.log('Applying updated playlist...');
       this.isPlaylistUpdated = false;
@@ -427,13 +429,24 @@ export class Player implements OnInit, OnDestroy {
 
     let nextIndex = this.currentVideoIndex() + 1;
 
+    // Loop back to the beginning if we reached the end
     if (nextIndex >= p.videos.length) {
-      this.currentVideoIndex.set(0);
-      this.loadAndPlayVideo(0);
-    } else {
-      this.currentVideoIndex.set(nextIndex);
-      this.loadAndPlayVideo(nextIndex);
+      nextIndex = 0;
     }
+
+    // FIX FOR LOOPING: If there's only 1 video in the playlist, just rewind it. 
+    // Re-processing the blob breaks the HTML5 video loop.
+    if (nextIndex === this.currentVideoIndex() && p.videos.length === 1) {
+      if (this.videoPlayer && this.videoPlayer.nativeElement) {
+        this.videoPlayer.nativeElement.currentTime = 0;
+        this.playVideo();
+      }
+      return;
+    }
+
+    // Standard progression for multi-video playlists
+    this.currentVideoIndex.set(nextIndex);
+    this.loadAndPlayVideo(nextIndex);
   }
 
   toggleFullscreen() {
