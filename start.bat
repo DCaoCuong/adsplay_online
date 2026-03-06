@@ -1,9 +1,8 @@
 @echo off
+setlocal enabledelayedexpansion
 echo =========================================================
 echo AdPlay Startup Script (Windows)
 echo =========================================================
-echo.
-echo Please wait while we start the Backend and Frontend...
 echo.
 
 :: Check if Node.js is installed
@@ -16,33 +15,72 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-:: Start Backend in a new command window
-echo Startting Backend...
-cd backend
-if not exist node_modules (
-    echo Installing backend dependencies...
-    call npm install
+:: Discover local IP for TV access
+set IP=localhost
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /i "IPv4"') do (
+    set tempIP=%%a
+    set tempIP=!tempIP: =!
+    if not "!tempIP!"=="127.0.0.1" set IP=!tempIP!
 )
+
+echo [1] Development Mode (Fast updates, opens 2 windows)
+echo [2] Production Build ^& Run (Signage ready, most stable)
+echo.
+set /p choice="Select mode [1/2]: "
+
+if "%choice%"=="2" goto production
+goto development
+
+:development
+echo Starting in DEVELOPMENT mode...
+cd backend
+if not exist node_modules call npm install
 start "AdPlay Backend" cmd /c "npm run dev"
 cd ..
 
-:: Start Frontend in a new command window
-echo Startting Frontend...
 cd frontend
-if not exist node_modules (
-    echo Installing frontend dependencies...
-    call npm install
-)
+if not exist node_modules call npm install
 start "AdPlay Frontend" cmd /c "npm run start"
 cd ..
+goto finish_dev
 
+:production
+echo Starting in PRODUCTION mode...
 echo.
-echo AdPlay is starting up! 
-echo Two new windows have opened for the backend and frontend.
+echo Step 1: Building Frontend (this may take a minute^)...
+cd frontend
+if not exist node_modules call npm install
+call npm run build
+if %errorlevel% neq 0 (
+    echo.
+    echo ERROR: Frontend build failed!
+    pause
+    exit /b 1
+)
+cd ..
+
+echo Step 2: Starting Server...
+cd backend
+if not exist node_modules call npm install
+start "AdPlay Server" cmd /c "npm run dev"
+cd ..
+goto finish_prod
+
+:finish_dev
 echo.
-echo You can access the application shortly at:
-echo Backend (API):   http://localhost:3000
-echo Frontend (App):  http://localhost:4200
+echo AdPlay is starting up in DEV mode!
+echo Local:    http://localhost:4200
+echo On TV:    http://%IP%:4200
+goto end
+
+:finish_prod
 echo.
-echo Press any key to close this window (the app will keep running in the other windows).
+echo AdPlay is starting up in PRODUCTION mode!
+echo Local:    http://localhost:3000
+echo On TV:    http://%IP%:3000
+goto end
+
+:end
+echo.
+echo Press any key to close this window (the app will keep running).
 pause >nul
