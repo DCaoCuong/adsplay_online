@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, signal, computed, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, signal, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, Profile, Video } from '../../services/api.service';
@@ -20,7 +20,6 @@ export class Player implements OnInit, OnDestroy {
   isCursorHidden = signal(false);
   isVideoPortrait = signal(false);
 
-  // NEW: Signal to hold the local Object URL for the video
   localVideoUrl = signal<string>('');
   private currentObjectUrl: string | null = null;
 
@@ -28,6 +27,9 @@ export class Player implements OnInit, OnDestroy {
   private heartbeatInterval: any;
   private autoReloadTimeout: any;
   private heartbeatFailures = 0;
+
+  private playlistSyncInterval: any;
+  private isPlaylistUpdated = false;
 
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
@@ -74,6 +76,12 @@ export class Player implements OnInit, OnDestroy {
       document.addEventListener('mousemove', this.onMouseMoveBound);
       document.addEventListener('click', this.onMouseMoveBound);
 
+      window.addEventListener('online', () => {
+        console.log('Network connection restored. Restarting heartbeat...');
+        this.heartbeatFailures = 0;
+        if (!this.heartbeatInterval) this.startHeartbeat();
+      });
+
       this.autoReloadTimeout = setInterval(() => {
         if (!document.fullscreenElement) {
           console.log('Performing scheduled 24h reload...');
@@ -92,9 +100,11 @@ export class Player implements OnInit, OnDestroy {
     document.removeEventListener('fullscreenchange', this.onFullscreenChangeBound);
     document.removeEventListener('mousemove', this.onMouseMoveBound);
     document.removeEventListener('click', this.onMouseMoveBound);
+
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     if (this.activityTimeout) clearTimeout(this.activityTimeout);
     if (this.autoReloadTimeout) clearTimeout(this.autoReloadTimeout);
+    if (this.playlistSyncInterval) clearInterval(this.playlistSyncInterval);
 
     if (this.currentObjectUrl) {
       URL.revokeObjectURL(this.currentObjectUrl);
@@ -142,7 +152,10 @@ export class Player implements OnInit, OnDestroy {
 
             if (this.heartbeatFailures >= 5) {
               console.warn('Heartbeat failed 5 times continuously. Stopping polling.');
-              if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
+              if (this.heartbeatInterval) {
+                clearInterval(this.heartbeatInterval);
+                this.heartbeatInterval = null;
+              }
             }
           }
         });
@@ -150,6 +163,39 @@ export class Player implements OnInit, OnDestroy {
     };
 
     this.heartbeatInterval = setInterval(sendPulse, 30000);
+  }
+
+  startPlaylistSync() {
+    if (this.playlistSyncInterval) clearInterval(this.playlistSyncInterval);
+
+    this.playlistSyncInterval = setInterval(() => {
+      this.triggerManualSync();
+    }, 60000);
+  }
+
+  // Extracted into a method so we can call it manually if a video 404s
+  private triggerManualSync() {
+    const p = this.profile();
+    if (!p) return;
+
+    this.api.getProfile(p.id).subscribe({
+      next: (updatedProfile) => {
+        const currentVideosHash = p.videos?.map(v => v.id).join(',') || '';
+        const newVideosHash = updatedProfile.videos?.map(v => v.id).join(',') || '';
+
+        if (currentVideosHash !== newVideosHash) {
+          console.log('🔄 Playlist change detected! Syncing...');
+
+          if (updatedProfile.videos) {
+            this.syncCacheWithBackend(updatedProfile.videos);
+          }
+
+          this.profile.set(updatedProfile);
+          this.isPlaylistUpdated = true;
+        }
+      },
+      error: (err) => console.error('Background sync failed', err)
+    });
   }
 
   loadAllProfiles() {
@@ -181,11 +227,12 @@ export class Player implements OnInit, OnDestroy {
               this.heartbeatFailures = 0;
               this.api.sendHeartbeat(found.id).subscribe();
 
-              // Sync cache and start playing the first video
               if (detailedProfile.videos) {
                 this.syncCacheWithBackend(detailedProfile.videos);
                 this.loadAndPlayVideo(0);
               }
+
+              this.startPlaylistSync();
             },
             error: (e) => {
               console.error("Failed to load details", e);
@@ -205,11 +252,6 @@ export class Player implements OnInit, OnDestroy {
     });
   }
 
-  // --- NEW: CACHING & MEMORY MANAGEMENT ---
-
-  /**
-   * Fetches the video from local cache. If it doesn't exist, downloads it.
-   */
   private async loadAndPlayVideo(index: number) {
     const p = this.profile();
     if (!p || !p.videos || p.videos.length === 0) return;
@@ -224,8 +266,28 @@ export class Player implements OnInit, OnDestroy {
       if (!response) {
         console.log(`Downloading ${video.filename} to local TV storage...`);
         response = await fetch(serverUrl);
-        if (response.ok) {
+
+        // NEW: STRICT 404/SERVER ERROR HANDLING
+        if (!response.ok) {
+          console.warn(`🚨 Video ${video.filename} missing on server (${response.status}). Admin likely deleted it.`);
+
+          // Force an immediate sync to get the corrected playlist from the server
+          this.triggerManualSync();
+
+          // Move to the next valid video without crashing
+          this.next();
+          return;
+        }
+
+        try {
           await cache.put(serverUrl, response.clone());
+        } catch (cacheErr: any) {
+          if (cacheErr.name === 'QuotaExceededError') {
+            console.warn('TV out of storage. Wiping old cache and falling back to network stream.');
+            await caches.delete('adsplay-video-cache');
+          } else {
+            console.error('Cache put error:', cacheErr);
+          }
         }
       } else {
         console.log(`Playing ${video.filename} directly from TV storage (0 bandwidth)`);
@@ -241,14 +303,11 @@ export class Player implements OnInit, OnDestroy {
       this.localVideoUrl.set(this.currentObjectUrl);
 
     } catch (error) {
-      console.error("Cache failed, falling back to network stream", error);
+      console.error("Cache or Fetch failed, falling back to basic network stream", error);
       this.localVideoUrl.set(serverUrl);
     }
   }
 
-  /**
-   * Prevents TV hard drives from filling up by deleting old, removed videos
-   */
   private async syncCacheWithBackend(validVideos: Video[]) {
     try {
       const cache = await caches.open('adsplay-video-cache');
@@ -259,7 +318,6 @@ export class Player implements OnInit, OnDestroy {
         const urlParts = request.url.split('/');
         const cachedFilename = urlParts[urlParts.length - 1];
 
-        // If the video on the hard drive is NO LONGER in the backend playlist, delete it.
         if (!validFilenames.includes(cachedFilename)) {
           console.log(`🧹 Garbage Collector: Deleting old video to free up TV space: ${cachedFilename}`);
           await cache.delete(request);
@@ -269,8 +327,6 @@ export class Player implements OnInit, OnDestroy {
       console.error("Cache cleanup failed", e);
     }
   }
-
-  // ----------------------------------------
 
   selectProfile(p: Profile) {
     try {
@@ -354,37 +410,29 @@ export class Player implements OnInit, OnDestroy {
 
   private next() {
     const p = this.profile();
-    if (!p || !p.videos || p.videos.length === 0) return;
+
+    if (!p || !p.videos || p.videos.length === 0) {
+      console.warn('Playlist became empty. Redirecting to selection.');
+      this.backToSelection();
+      return;
+    }
+
+    if (this.isPlaylistUpdated) {
+      console.log('Applying updated playlist...');
+      this.isPlaylistUpdated = false;
+      this.currentVideoIndex.set(0);
+      this.loadAndPlayVideo(0);
+      return;
+    }
 
     let nextIndex = this.currentVideoIndex() + 1;
 
-    // Check backend for updates when we reach the end of the playlist
     if (nextIndex >= p.videos.length) {
-      console.log('Playlist ended, checking backend for updates...');
-      this.api.getProfile(p.id).subscribe({
-        next: (updatedProfile) => {
-          this.profile.set(updatedProfile);
-
-          if (updatedProfile.videos && updatedProfile.videos.length > 0) {
-            // Clean up the cache against the NEW list of videos
-            this.syncCacheWithBackend(updatedProfile.videos);
-
-            this.currentVideoIndex.set(0);
-            this.loadAndPlayVideo(0); // Load via Cache Manager
-          } else {
-            console.warn('Playlist became empty after update. Redirecting to selection.');
-            this.backToSelection();
-          }
-        },
-        error: (err) => {
-          console.error('Failed to auto-update playlist, looping local copy', err);
-          this.currentVideoIndex.set(0);
-          this.loadAndPlayVideo(0); // Load via Cache Manager
-        }
-      });
+      this.currentVideoIndex.set(0);
+      this.loadAndPlayVideo(0);
     } else {
       this.currentVideoIndex.set(nextIndex);
-      this.loadAndPlayVideo(nextIndex); // Load via Cache Manager
+      this.loadAndPlayVideo(nextIndex);
     }
   }
 

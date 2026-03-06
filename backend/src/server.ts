@@ -41,9 +41,6 @@ app.use((req, res, next) => {
     next();
 });
 
-// 2. API Routes follow immediately to ensure they are prioritized
-// (Routes will be moved here in the next chunk/step)
-
 // Multer setup for secure uploads
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB limit
 const storage = multer.diskStorage({
@@ -80,9 +77,6 @@ const upload = multer({
 app.post('/api/auth/login', async (req, res): Promise<any> => {
     const { username, password } = req.body;
 
-    // In a real app, we'd check against the users in the DB
-    // For this app, we'll use the env-provided admin credentials for simplicity
-    // but also allow checking against the users array if it exists.
     const db = await getDb();
     const user = db.users.find(u => u.username === username);
 
@@ -107,18 +101,32 @@ app.get('/api/videos', authenticateToken, async (req, res) => {
     res.json(db.videos);
 });
 
-// 2. Upload Video (Wrapped to handle Multer errors gracefully)
+// 2. Upload Video (Wrapped to handle Multer errors gracefully & request abortions)
 app.post('/api/videos', authenticateToken, (req, res, next) => {
     upload.single('video')(req, res, (err) => {
         if (err instanceof multer.MulterError) {
-            // A Multer-specific error (e.g., file too large)
             return res.status(400).json({ error: err.message });
         } else if (err) {
-            // A custom filter error (e.g., invalid file type)
             return res.status(400).json({ error: err.message });
         }
         next();
     });
+
+    // Handle abrupt network disconnection during upload to prevent orphaned files
+    req.on('aborted', async () => {
+        if (req.file) {
+            const partialFilePath = path.join(__dirname, '../uploads', req.file.filename);
+            try {
+                if (await fs.pathExists(partialFilePath)) {
+                    await fs.remove(partialFilePath);
+                    console.log(`Cleaned up partial upload: ${req.file.filename}`);
+                }
+            } catch (cleanupErr) {
+                console.error('Failed to clean up aborted upload:', cleanupErr);
+            }
+        }
+    });
+
 }, async (req, res): Promise<any> => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
@@ -228,8 +236,6 @@ app.get('/api/profiles/:id', async (req, res): Promise<any> => {
 
     // BANDWIDTH OPTIMIZATION
     // Cache this specific profile response for 15 seconds. 
-    // This allows many screens loading the same profile to hit proxy/browser caches 
-    // instead of executing the full DB lookup and network transfer every single time.
     res.setHeader('Cache-Control', 'public, max-age=15');
 
     res.json({ ...profile, videos });
@@ -311,7 +317,6 @@ app.listen(Number(PORT), '0.0.0.0', () => {
     const nets = networkInterfaces();
     for (const name of Object.keys(nets)) {
         for (const net of nets[name]) {
-            // Skip over non-IPv4 and internal (i.e. 127.0.0.1) addresses
             if (net.family === 'IPv4' && !net.internal) {
                 console.log(`Server available at http://${net.address}:${PORT}`);
             }
