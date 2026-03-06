@@ -83,8 +83,9 @@
 
         <video #videoPlayer [src]="currentVideoSrc()"
             class="relative z-10 max-w-full max-h-full w-auto h-auto object-contain shadow-2xl transition-all duration-700"
-            [class.scale-95]="isVideoPortrait() && !isFullscreen()" playsinline (ended)="onVideoEnded()"
-            (error)="onVideoError($event)" (loadedmetadata)="onMetadataLoaded($event)" (click)="toggleFullscreen()">
+            [class.scale-95]="isVideoPortrait() && !isFullscreen()" playsinline webkit-playsinline x5-playsinline
+            (ended)="onVideoEnded()" (error)="onVideoError($event)" (loadedmetadata)="onMetadataLoaded($event)"
+            (click)="toggleFullscreen()">
         </video>
     </div>
 

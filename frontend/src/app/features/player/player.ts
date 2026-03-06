@@ -28,6 +28,8 @@ export class Player implements OnInit, OnDestroy {
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
 
+  private endedSafetyTimeout: any;
+
   currentVideoSrc = computed(() => {
     const p = this.profile();
     if (!p || !p.videos || p.videos.length === 0) return '';
@@ -108,6 +110,7 @@ export class Player implements OnInit, OnDestroy {
       this.videoPlayer.nativeElement.src = "";
       this.videoPlayer.nativeElement.load();
     }
+    if (this.endedSafetyTimeout) clearTimeout(this.endedSafetyTimeout);
   }
 
   private resetActivityTimer() {
@@ -214,7 +217,28 @@ export class Player implements OnInit, OnDestroy {
     this.router.navigate(['/player', slugify(p.name)]);
   }
 
+  onVideoEnded() {
+    clearTimeout(this.endedSafetyTimeout);
+    this.next();
+  }
+
+  private startEndedSafetyTimer() {
+    clearTimeout(this.endedSafetyTimeout);
+    // Safety check: If video doesn't end within its duration + 2s, force skip.
+    // This handles hardware decoders on old TVs that "hang" at the last frame.
+    const duration = this.videoPlayer.nativeElement.duration;
+    if (duration && !isNaN(duration)) {
+      this.endedSafetyTimeout = setTimeout(() => {
+        if (!this.videoPlayer.nativeElement.paused) {
+          console.warn("Ended event missed, forcing next video via safety timer");
+          this.onVideoEnded();
+        }
+      }, (duration + 2) * 1000);
+    }
+  }
+
   onMetadataLoaded(event: any) {
+    this.startEndedSafetyTimer();
     const video = event.target as HTMLVideoElement;
     if (video) {
       this.isVideoPortrait.set(video.videoHeight > video.videoWidth);
@@ -261,11 +285,11 @@ export class Player implements OnInit, OnDestroy {
   unmuteAndPlay() {
     if (!this.videoPlayer) return;
     this.videoPlayer.nativeElement.muted = false;
-    this.videoPlayer.nativeElement.play().catch(e => console.error("Unmute play failed", e));
+    this.videoPlayer.nativeElement.play().catch((e: any) => console.error("Unmute play failed", e));
     this.showUnmuteOverlay.set(false);
   }
 
-  onVideoEnded() {
+  private next() {
     const p = this.profile();
     if (!p || !p.videos || p.videos.length === 0) return;
 
@@ -282,7 +306,7 @@ export class Player implements OnInit, OnDestroy {
             if (updatedProfile.videos.length === 1) {
               if (this.videoPlayer && this.videoPlayer.nativeElement) {
                 this.videoPlayer.nativeElement.currentTime = 0;
-                this.videoPlayer.nativeElement.play().catch(e => console.error("Play failed on loop", e));
+                this.videoPlayer.nativeElement.play().catch((e: any) => console.error("Play failed on loop", e));
               }
             }
           } else {
@@ -297,7 +321,7 @@ export class Player implements OnInit, OnDestroy {
           if (p.videos.length === 1) {
             if (this.videoPlayer && this.videoPlayer.nativeElement) {
               this.videoPlayer.nativeElement.currentTime = 0;
-              this.videoPlayer.nativeElement.play().catch(e => console.error("Play failed on fallback loop", e));
+              this.videoPlayer.nativeElement.play().catch((e: any) => console.error("Play failed on fallback loop", e));
             }
           }
         }
@@ -308,10 +332,27 @@ export class Player implements OnInit, OnDestroy {
   }
 
   toggleFullscreen() {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
+    const elem = this.container.nativeElement as any;
+    if (!document.fullscreenElement && !(document as any).webkitFullscreenElement && !(document as any).mozFullScreenElement && !(document as any).msFullscreenElement) {
+      if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+      } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+      } else if (elem.mozRequestFullScreen) {
+        elem.mozRequestFullScreen();
+      } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+      }
     } else {
-      document.exitFullscreen();
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      } else if ((document as any).mozCancelFullScreen) {
+        (document as any).mozCancelFullScreen();
+      } else if ((document as any).msExitFullscreen) {
+        (document as any).msExitFullscreen();
+      }
     }
   }
 
