@@ -31,6 +31,8 @@ export class ProfileManager {
 
   // Drag State
   draggedIndex: number | null = null;
+  draggedVideo: Video | null = null;
+  isDragOverPlaylist = false;
 
   constructor(private api: ApiService) { }
 
@@ -63,28 +65,54 @@ export class ProfileManager {
   }
 
   // Drag & Drop Handlers
+  onDragStartFromLibrary(event: DragEvent, video: Video) {
+    this.draggedVideo = video;
+    this.draggedIndex = null;
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.setData('text/plain', 'library'); // Marker for library drag
+    }
+  }
+
   onDragStart(event: DragEvent, index: number) {
     this.draggedIndex = index;
+    this.draggedVideo = null;
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/plain', index.toString());
     }
   }
 
-  onDragOver(event: DragEvent, index: number) {
+  onDragOver(event: DragEvent, index?: number) {
     event.preventDefault();
-    if (this.draggedIndex === null || this.draggedIndex === index) return;
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = this.draggedVideo ? 'copy' : 'move';
+    }
+    this.isDragOverPlaylist = true;
   }
 
-  onDrop(event: DragEvent, index: number) {
+  onDragLeave() {
+    this.isDragOverPlaylist = false;
+  }
+
+  onDrop(event: DragEvent, index?: number) {
     event.preventDefault();
-    if (this.draggedIndex === null) return;
+    this.isDragOverPlaylist = false;
 
-    const movedItem = this.playlistVideos[this.draggedIndex];
-    this.playlistVideos.splice(this.draggedIndex, 1);
-    this.playlistVideos.splice(index, 0, movedItem);
-
-    this.draggedIndex = null;
+    // 1. Dragging from Library
+    if (this.draggedVideo) {
+      const targetIndex = index !== undefined ? index : this.playlistVideos.length;
+      this.playlistVideos.splice(targetIndex, 0, this.draggedVideo);
+      this.draggedVideo = null;
+    }
+    // 2. Reordering within Playlist
+    else if (this.draggedIndex !== null) {
+      const targetIndex = index !== undefined ? index : this.playlistVideos.length - 1;
+      const movedItem = this.playlistVideos[this.draggedIndex];
+      this.playlistVideos.splice(this.draggedIndex, 1);
+      this.playlistVideos.splice(targetIndex, 0, movedItem);
+      this.draggedIndex = null;
+    }
   }
 
   save() {

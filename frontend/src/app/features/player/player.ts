@@ -26,7 +26,6 @@ export class Player implements OnInit, OnDestroy {
   private heartbeatFailures = 0;
 
   @ViewChild('videoPlayer') videoPlayer!: ElementRef<HTMLVideoElement>;
-  @ViewChild('bgVideo') bgVideo?: ElementRef<HTMLVideoElement>;
   @ViewChild('container') container!: ElementRef<HTMLDivElement>;
 
   currentVideoSrc = computed(() => {
@@ -38,7 +37,14 @@ export class Player implements OnInit, OnDestroy {
 
   private onFullscreenChangeBound = () => {
     this.zone.run(() => {
-      this.isFullscreen.set(!!document.fullscreenElement);
+      const fs = !!document.fullscreenElement;
+      console.log(`Fullscreen state changed: ${fs ? 'ENTERED' : 'EXITED'}`);
+      this.isFullscreen.set(fs);
+
+      // If we exited fullscreen while playing, ensure the cursor/overlay becomes visible
+      if (!fs && this.profile()) {
+        this.isCursorHidden.set(false);
+      }
     });
   }
 
@@ -72,8 +78,15 @@ export class Player implements OnInit, OnDestroy {
       document.addEventListener('click', this.onMouseMoveBound);
 
       // Memory Leak Prevention: Hard reload the digital signage every 24 hours
-      this.autoReloadTimeout = setTimeout(() => {
-        window.location.reload();
+      // but only if we are NOT currently playing/fullscreen to avoid disruption,
+      // or at least wait for a moment of inactivity.
+      this.autoReloadTimeout = setInterval(() => {
+        if (!document.fullscreenElement) {
+          console.log('Performing scheduled 24h reload...');
+          window.location.reload();
+        } else {
+          console.log('Hard reload deferred: Player is currently in fullscreen.');
+        }
       }, 24 * 60 * 60 * 1000);
     });
 
@@ -88,6 +101,13 @@ export class Player implements OnInit, OnDestroy {
     if (this.heartbeatInterval) clearInterval(this.heartbeatInterval);
     if (this.activityTimeout) clearTimeout(this.activityTimeout);
     if (this.autoReloadTimeout) clearTimeout(this.autoReloadTimeout);
+
+    // Explicitly cleanup video resources to prevent memory leaks
+    if (this.videoPlayer && this.videoPlayer.nativeElement) {
+      this.videoPlayer.nativeElement.pause();
+      this.videoPlayer.nativeElement.src = "";
+      this.videoPlayer.nativeElement.load();
+    }
   }
 
   private resetActivityTimer() {
@@ -214,10 +234,6 @@ export class Player implements OnInit, OnDestroy {
     try {
       this.videoPlayer.nativeElement.muted = false;
       const playPromise = this.videoPlayer.nativeElement.play();
-      if (this.bgVideo && this.bgVideo.nativeElement) {
-        this.bgVideo.nativeElement.currentTime = 0;
-        this.bgVideo.nativeElement.play().catch(() => { });
-      }
       await playPromise;
       this.showUnmuteOverlay.set(false);
     } catch (err) {
@@ -225,10 +241,6 @@ export class Player implements OnInit, OnDestroy {
       this.videoPlayer.nativeElement.muted = true;
       try {
         const fallbackPromise = this.videoPlayer.nativeElement.play();
-        if (this.bgVideo && this.bgVideo.nativeElement) {
-          this.bgVideo.nativeElement.currentTime = 0;
-          this.bgVideo.nativeElement.play().catch(() => { });
-        }
         await fallbackPromise;
         this.showUnmuteOverlay.set(true);
       } catch (e) {
@@ -236,6 +248,8 @@ export class Player implements OnInit, OnDestroy {
       }
     }
   }
+
+
 
   interact() {
     this.unmuteAndPlay();
@@ -248,9 +262,6 @@ export class Player implements OnInit, OnDestroy {
     if (!this.videoPlayer) return;
     this.videoPlayer.nativeElement.muted = false;
     this.videoPlayer.nativeElement.play().catch(e => console.error("Unmute play failed", e));
-    if (this.bgVideo && this.bgVideo.nativeElement) {
-      this.bgVideo.nativeElement.play().catch(() => { });
-    }
     this.showUnmuteOverlay.set(false);
   }
 
