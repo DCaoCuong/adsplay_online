@@ -140,7 +140,7 @@ export class Login {
         this.router.navigate(['/admin']);
       },
       error: (err) => {
-        this.error = getErrorMessage(err, 'Tai khoan hoac mat khau khong chinh xac');
+        this.error = getErrorMessage(err, 'Tài khoản hoặc mật khẩu không chính xác');
         this.loading = false;
       }
     });

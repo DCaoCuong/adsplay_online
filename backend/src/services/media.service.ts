@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import path from 'node:path';
-import ffmpeg from 'fluent-ffmpeg';
+import { execFile, spawn } from 'node:child_process';
+import { promisify } from 'node:util';
 import ffmpegPath from 'ffmpeg-static';
 import ffprobeStatic from 'ffprobe-static';
 import { getConfig } from '../config';
@@ -9,56 +10,108 @@ import { logError, logInfo } from '../logger';
 import type { Video } from '../types';
 
 const config = getConfig();
+const execFileAsync = promisify(execFile);
 const queue: string[] = [];
 let isProcessing = false;
 
-if (ffmpegPath) {
-    ffmpeg.setFfmpegPath(ffmpegPath);
+interface FfprobeStream {
+    codec_type?: string;
+    height?: number;
+    width?: number;
 }
 
-if (ffprobeStatic.path) {
-    ffmpeg.setFfprobePath(ffprobeStatic.path);
+interface FfprobeOutput {
+    format?: {
+        duration?: string;
+    };
+    streams?: FfprobeStream[];
 }
 
-const probe = async (inputPath: string): Promise<Partial<Video>> =>
-    new Promise((resolve, reject) => {
-        ffmpeg.ffprobe(inputPath, (error, metadata) => {
-            if (error) {
-                reject(error);
+const getRequiredBinary = (binaryPath: string | null | undefined, toolName: string) => {
+    if (!binaryPath) {
+        throw new Error(`${toolName} binary is not available.`);
+    }
+
+    return binaryPath;
+};
+
+const probe = async (inputPath: string): Promise<Partial<Video>> => {
+    const ffprobePath = getRequiredBinary(ffprobeStatic.path, 'ffprobe');
+    const { stdout } = await execFileAsync(ffprobePath, [
+        '-v',
+        'error',
+        '-print_format',
+        'json',
+        '-show_format',
+        '-show_streams',
+        inputPath,
+    ]);
+
+    const metadata = JSON.parse(stdout) as FfprobeOutput;
+    const videoStream = metadata.streams?.find((stream) => stream.codec_type === 'video');
+    const duration = metadata.format?.duration ? Number(metadata.format.duration) : undefined;
+
+    return {
+        durationSeconds: Number.isFinite(duration) ? duration : undefined,
+        height: videoStream?.height,
+        width: videoStream?.width,
+    };
+};
+
+const transcodeToOptimizedMp4 = async (sourcePath: string, outputPath: string) => {
+    const ffmpegBinary = getRequiredBinary(ffmpegPath, 'ffmpeg');
+
+    await new Promise<void>((resolve, reject) => {
+        const process = spawn(ffmpegBinary, [
+            '-y',
+            '-i',
+            sourcePath,
+            '-movflags',
+            '+faststart',
+            '-preset',
+            'veryfast',
+            '-crf',
+            '24',
+            '-maxrate',
+            '3500k',
+            '-bufsize',
+            '7000k',
+            '-vf',
+            'scale=w=1920:h=1080:force_original_aspect_ratio=decrease',
+            '-pix_fmt',
+            'yuv420p',
+            '-profile:v',
+            'high',
+            '-level',
+            '4.1',
+            '-c:v',
+            'libx264',
+            '-c:a',
+            'aac',
+            '-b:a',
+            '128k',
+            '-f',
+            'mp4',
+            outputPath,
+        ]);
+
+        let stderr = '';
+
+        process.stderr.on('data', (chunk: Buffer | string) => {
+            stderr += chunk.toString();
+        });
+
+        process.on('error', reject);
+        process.on('close', (code) => {
+            if (code === 0) {
+                resolve();
                 return;
             }
 
-            const videoStream = metadata.streams.find((stream) => stream.codec_type === 'video');
-            resolve({
-                durationSeconds: metadata.format.duration || undefined,
-                height: videoStream?.height,
-                width: videoStream?.width,
-            });
+            reject(new Error(stderr.trim() || `ffmpeg exited with code ${code}`));
         });
     });
-
-const transcodeToOptimizedMp4 = async (sourcePath: string, outputPath: string) =>
-    new Promise<void>((resolve, reject) => {
-        ffmpeg(sourcePath)
-            .outputOptions([
-                '-movflags +faststart',
-                '-preset veryfast',
-                '-crf 24',
-                '-maxrate 3500k',
-                '-bufsize 7000k',
-                '-vf scale=w=1920:h=1080:force_original_aspect_ratio=decrease',
-                '-pix_fmt yuv420p',
-                '-profile:v high',
-                '-level 4.1',
-            ])
-            .videoCodec('libx264')
-            .audioCodec('aac')
-            .audioBitrate('128k')
-            .format('mp4')
-            .on('end', () => resolve())
-            .on('error', (error) => reject(error))
-            .save(outputPath);
-    });
+};
 
 const ensureUniqueProcessedPath = (videoId: string) =>
     path.join(config.processedUploadsDir, `${videoId}-optimized.mp4`);

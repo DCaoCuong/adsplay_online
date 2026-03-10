@@ -14,7 +14,7 @@ export class VideoList {
   @Input() isUploading = false;
   @Input() uploadProgress = 0;
   @Input() maxUploadSizeBytes = 2 * 1024 * 1024 * 1024;
-  @Input() uploadStatusLabel = 'San sang tai len';
+  @Input() uploadStatusLabel = 'Sẵn sàng tải lên';
   @Output() upload = new EventEmitter<File>();
   @Output() delete = new EventEmitter<string>();
 
@@ -62,14 +62,14 @@ export class VideoList {
     }
 
     if (!this.ALLOWED_TYPES.includes(file.type)) {
-      this.uploadError = `Dinh dang khong ho tro (${file.type || 'unknown'}). Chon MP4, WebM, OGG hoac MOV.`;
+      this.uploadError = `Định dạng không hỗ trợ (${file.type || 'unknown'}). Chọn MP4, WebM, OGG hoặc MOV.`;
       input.value = '';
       return;
     }
 
     if (file.size > this.maxUploadSizeBytes) {
       const sizeInMB = (file.size / (1024 * 1024)).toFixed(2);
-      this.uploadError = `File qua lon (${sizeInMB} MB). Gioi han hien tai la ${this.getMaxUploadSizeLabel()}.`;
+      this.uploadError = `File quá lớn (${sizeInMB} MB). Giới hạn hiện tại là ${this.getMaxUploadSizeLabel()}.`;
       input.value = '';
       return;
     }
@@ -84,14 +84,14 @@ export class VideoList {
 
   getProcessingLabel(video: Video) {
     if (video.processingStatus === 'processing') {
-      return 'Dang toi uu';
+      return 'Đang tối ưu';
     }
 
     if (video.processingStatus === 'pending') {
-      return 'Dang xep hang';
+      return 'Đang xếp hàng';
     }
 
-    return video.streamVariant === 'optimized' ? 'San sang HD' : 'San sang ban goc';
+    return video.streamVariant === 'optimized' ? 'Sẵn sàng HD' : 'Sẵn sàng bản gốc';
   }
 
   getMaxUploadSizeLabel() {

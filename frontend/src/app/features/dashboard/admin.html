@@ -129,7 +129,7 @@
                         <h3 class="font-bold text-slate-700 dark:text-slate-200">Trạng Thái Hệ Thống</h3>
                         <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
                             @if (store.systemInfo()) {
-                            IP: {{ store.systemInfo()?.localIps?.[0] || 'Unknown' }}
+                            IP: {{ store.systemInfo()?.localIps?.[0] || 'Không rõ' }}
                             } @else {
                             Đang kiểm tra...
                             }

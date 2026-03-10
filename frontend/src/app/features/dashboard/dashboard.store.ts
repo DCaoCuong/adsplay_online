@@ -25,7 +25,7 @@ export class DashboardStore {
   readonly loading = signal(false);
   readonly isUploading = signal(false);
   readonly uploadProgress = signal(0);
-  readonly uploadStatusLabel = signal('San sang tai len');
+  readonly uploadStatusLabel = signal('Sẵn sàng tải lên');
   readonly isSystemOnline = signal(true);
   readonly systemInfo = signal<{ uptime: number; localIps: string[] } | null>(null);
   readonly maxUploadSizeBytes = signal(2 * 1024 * 1024 * 1024);
@@ -54,7 +54,7 @@ export class DashboardStore {
           this.videos.set(videos);
         },
         error: (error) => {
-          this.toastService.show(getErrorMessage(error, 'Khong the tai du lieu dashboard.'), 'error');
+          this.toastService.show(getErrorMessage(error, 'Không thể tải dữ liệu dashboard.'), 'error');
         },
       });
   }
@@ -86,26 +86,26 @@ export class DashboardStore {
   async uploadVideo(file: File) {
     this.isUploading.set(true);
     this.uploadProgress.set(0);
-    this.uploadStatusLabel.set('Dang tao phien tai len...');
+    this.uploadStatusLabel.set('Đang tạo phiên tải lên...');
 
     try {
       await this.resumableUpload.uploadFile(file, (progressPercent, session) => {
         this.uploadProgress.set(progressPercent);
         this.uploadStatusLabel.set(
           session.uploadedChunkIndexes.length > 0
-            ? `Dang tiep tuc tai len (${session.uploadedChunkIndexes.length}/${session.totalChunks} chunks da co)`
-            : 'Dang tai len theo tung chunk...',
+            ? `Đang tiếp tục tải lên (${session.uploadedChunkIndexes.length}/${session.totalChunks} chunk đã có)`
+            : 'Đang tải lên theo từng chunk...',
         );
       });
 
-      this.toastService.show('Video da duoc tai len thanh cong.', 'success');
+      this.toastService.show('Video đã được tải lên thành công.', 'success');
       this.refreshAll();
     } catch (error) {
-      this.toastService.show(getErrorMessage(error, 'Tai video that bai.'), 'error');
+      this.toastService.show(getErrorMessage(error, 'Tải video thất bại.'), 'error');
     } finally {
       this.isUploading.set(false);
       this.uploadProgress.set(0);
-      this.uploadStatusLabel.set('San sang tai len');
+      this.uploadStatusLabel.set('Sẵn sàng tải lên');
     }
   }
 
@@ -129,13 +129,13 @@ export class DashboardStore {
     request.pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
       next: () => {
         this.toastService.show(
-          payload.id ? 'Da cap nhat man hinh.' : 'Da tao man hinh moi.',
+          payload.id ? 'Đã cập nhật màn hình.' : 'Đã tạo màn hình mới.',
           'success',
         );
         this.refreshAll();
       },
       error: (error) => {
-        this.toastService.show(getErrorMessage(error, 'Khong the luu man hinh.'), 'error');
+        this.toastService.show(getErrorMessage(error, 'Không thể lưu màn hình.'), 'error');
       },
     });
   }
@@ -146,11 +146,11 @@ export class DashboardStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.toastService.show('Da xoa man hinh.', 'success');
+          this.toastService.show('Đã xóa màn hình.', 'success');
           this.refreshAll();
         },
         error: (error) => {
-          this.toastService.show(getErrorMessage(error, 'Khong the xoa man hinh.'), 'error');
+          this.toastService.show(getErrorMessage(error, 'Không thể xóa màn hình.'), 'error');
         },
       });
   }
@@ -161,11 +161,11 @@ export class DashboardStore {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: () => {
-          this.toastService.show('Da xoa video.', 'success');
+          this.toastService.show('Đã xóa video.', 'success');
           this.refreshAll();
         },
         error: (error) => {
-          this.toastService.show(getErrorMessage(error, 'Khong the xoa video.'), 'error');
+          this.toastService.show(getErrorMessage(error, 'Không thể xóa video.'), 'error');
           this.refreshAll();
         },
       });
@@ -174,11 +174,11 @@ export class DashboardStore {
   getVideoDeleteMessage(id: string) {
     const usedInProfiles = this.profiles().filter((profile) => profile.videoIds.includes(id));
     if (!usedInProfiles.length) {
-      return 'Hanh dong nay khong the hoan tac. Video se bi xoa vinh vien khoi he thong.';
+      return 'Hành động này không thể hoàn tác. Video sẽ bị xóa vĩnh viễn khỏi hệ thống.';
     }
 
     const profileNames = usedInProfiles.map((profile) => profile.name).join(', ');
-    return `Video nay dang duoc dung trong: ${profileNames}. Xoa video se lam playlist cua cac man hinh do mat noi dung ngay lap tuc.`;
+    return `Video này đang được dùng trong: ${profileNames}. Xóa video sẽ làm playlist của các màn hình đó mất nội dung ngay lập tức.`;
   }
 
   isOnline(lastSeen?: string) {

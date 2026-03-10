@@ -86,7 +86,7 @@ export class Admin implements OnInit {
 
   getDeleteVideoMessage() {
     const id = this.videoDeletingId();
-    return id ? this.store.getVideoDeleteMessage(id) : 'Xoa video?';
+    return id ? this.store.getVideoDeleteMessage(id) : 'Xóa video?';
   }
 
   private fallbackCopyTextToClipboard(text: string) {

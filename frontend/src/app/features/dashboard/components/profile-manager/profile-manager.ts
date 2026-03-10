@@ -111,12 +111,12 @@ export class ProfileManager {
   save() {
     const name = this.profileName.trim();
     if (!name) {
-      this.formError = 'Nhap ten cho man hinh.';
+      this.formError = 'Nhập tên cho màn hình.';
       return;
     }
 
     if (!this.playlistVideos.length) {
-      this.formError = 'Them it nhat mot video truoc khi luu.';
+      this.formError = 'Thêm ít nhất một video trước khi lưu.';
       return;
     }
 
@@ -125,7 +125,7 @@ export class ProfileManager {
       (profile) => profile.id !== this.editingId && slugify(profile.name) === nextSlug,
     );
     if (duplicate) {
-      this.formError = 'Ten man hinh nay da ton tai hoac tao slug trung lap.';
+      this.formError = 'Tên màn hình này đã tồn tại hoặc tạo slug trùng lặp.';
       return;
     }
 
@@ -165,7 +165,7 @@ export class ProfileManager {
   }
 
   getPlaylistDurationLabel() {
-    return `${this.playlistVideos.length} muc trong playlist`;
+    return `${this.playlistVideos.length} mục trong playlist`;
   }
 
   isOnline(lastSeen?: string) {

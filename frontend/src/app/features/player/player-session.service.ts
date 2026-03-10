@@ -52,7 +52,7 @@ export class PlayerSessionService {
 
   private readonly onNetworkRestoreBound = () => {
     this.zone.run(() => {
-      this.statusMessage.set('Ket noi da phuc hoi. Dang dong bo lai playlist.');
+      this.statusMessage.set('Kết nối đã phục hồi. Đang đồng bộ lại playlist.');
     });
     this.heartbeatFailures = 0;
     if (!this.heartbeatInterval) {
@@ -63,7 +63,7 @@ export class PlayerSessionService {
 
   private readonly onNetworkLostBound = () => {
     this.zone.run(() => {
-      this.statusMessage.set('Mat ket noi toi may chu. Player se tiep tuc phat neu du lieu da cache.');
+      this.statusMessage.set('Mất kết nối tới máy chủ. Player sẽ tiếp tục phát nếu dữ liệu đã cache.');
     });
   };
 
@@ -166,7 +166,7 @@ export class PlayerSessionService {
   }
 
   onVideoError() {
-    this.statusMessage.set('Khong tai duoc video hien tai. Dang chuyen sang muc tiep theo.');
+    this.statusMessage.set('Không tải được video hiện tại. Đang chuyển sang mục tiếp theo.');
     this.onVideoEnded();
   }
 
@@ -230,7 +230,7 @@ export class PlayerSessionService {
           if (this.heartbeatFailures >= 5 && this.heartbeatInterval) {
             window.clearInterval(this.heartbeatInterval);
             this.heartbeatInterval = null;
-            this.statusMessage.set('Khong gui duoc heartbeat. Dang tam dung dong bo nen.');
+            this.statusMessage.set('Không gửi được heartbeat. Đang tạm dừng đồng bộ nền.');
           }
         },
       });
@@ -266,11 +266,11 @@ export class PlayerSessionService {
           }
           this.profile.set(updatedProfile);
           this.isPlaylistUpdated = true;
-          this.statusMessage.set('Playlist da duoc cap nhat tu dashboard.');
+          this.statusMessage.set('Playlist đã được cập nhật từ dashboard.');
         }
       },
       error: () => {
-        this.statusMessage.set('Khong the dong bo playlist luc nay.');
+        this.statusMessage.set('Không thể đồng bộ playlist lúc này.');
       },
     });
   }
@@ -283,7 +283,7 @@ export class PlayerSessionService {
         this.loading.set(false);
       },
       error: () => {
-        this.statusMessage.set('Khong the tai danh sach man hinh.');
+        this.statusMessage.set('Không thể tải danh sách màn hình.');
         this.loading.set(false);
       },
     });
@@ -305,14 +305,14 @@ export class PlayerSessionService {
           void this.loadAndPlayVideo(0);
         } else {
           this.localVideoUrl.set('');
-          this.statusMessage.set('Playlist hien tai khong co noi dung.');
+          this.statusMessage.set('Playlist hiện tại không có nội dung.');
         }
 
         this.startPlaylistSync();
       },
       error: () => {
         this.loading.set(false);
-        this.statusMessage.set('Khong tim thay man hinh duoc yeu cau.');
+        this.statusMessage.set('Không tìm thấy màn hình được yêu cầu.');
         this.router.navigate(['/player']);
       },
     });
@@ -331,7 +331,7 @@ export class PlayerSessionService {
     if (!this.shouldCacheVideo(video)) {
       this.releaseCurrentObjectUrl();
       this.localVideoUrl.set(serverUrl);
-      this.statusMessage.set(video.processingStatus === 'ready' ? null : 'Video dang duoc xu ly, dang phat truc tiep tu server.');
+      this.statusMessage.set(video.processingStatus === 'ready' ? null : 'Video đang được xử lý, đang phát trực tiếp từ server.');
       void this.prefetchUpcomingVideo(index);
       return;
     }
@@ -343,7 +343,7 @@ export class PlayerSessionService {
       if (!response) {
         response = await fetch(serverUrl);
         if (!response.ok) {
-          this.statusMessage.set('Video da bi go bo khoi server. Dang dong bo lai playlist.');
+          this.statusMessage.set('Video đã bị gỡ khỏi server. Đang đồng bộ lại playlist.');
           this.triggerManualSync();
           this.next();
           return;
@@ -375,7 +375,7 @@ export class PlayerSessionService {
 
       this.releaseCurrentObjectUrl();
       this.localVideoUrl.set(serverUrl);
-      this.statusMessage.set('Dang phat truc tiep tu server vi cache khong kha dung.');
+      this.statusMessage.set('Đang phát trực tiếp từ server vì cache không khả dụng.');
     }
   }
 
@@ -395,7 +395,7 @@ export class PlayerSessionService {
         }
       }
     } catch {
-      this.statusMessage.set('Khong the don dep cache cuc bo luc nay.');
+      this.statusMessage.set('Không thể dọn dẹp cache cục bộ lúc này.');
     }
   }
 
@@ -429,9 +429,9 @@ export class PlayerSessionService {
       try {
         await this.videoElement.play();
         this.showUnmuteOverlay.set(true);
-        this.statusMessage.set('Trinh duyet yeu cau cham mot lan de bat am thanh.');
+        this.statusMessage.set('Trình duyệt yêu cầu chạm một lần để bật âm thanh.');
       } catch {
-        this.statusMessage.set('Khong the tu dong phat video nay.');
+        this.statusMessage.set('Không thể tự động phát video này.');
       }
     }
   }

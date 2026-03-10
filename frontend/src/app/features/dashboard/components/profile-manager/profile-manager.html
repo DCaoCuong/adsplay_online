@@ -3,10 +3,10 @@
     <div class="mb-6 flex items-start justify-between gap-4">
       <div>
         <h3 class="text-lg font-bold uppercase tracking-wider text-slate-900 dark:text-white text-glow">
-          Danh Sach Man Hinh
+          Danh Sách Màn Hình
         </h3>
         <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          {{ activePlayerCount }} man hinh dang hoat dong trong 60 giay gan nhat.
+          {{ activePlayerCount }} màn hình đang hoạt động trong 60 giây gần nhất.
         </p>
       </div>
       <button
@@ -15,7 +15,7 @@
         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
-        Tao Moi
+        Tạo Mới
       </button>
     </div>
 
@@ -69,7 +69,7 @@
             <button
               (click)="openEdit(profile)"
               class="rounded-lg p-2 text-slate-400 transition-all hover:bg-white/10 hover:text-brand-primary"
-              title="Cau hinh playlist">
+              title="Cấu hình playlist">
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -80,7 +80,7 @@
             <button
               (click)="deleteProfile(profile.id)"
               class="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-500/10 hover:text-red-500"
-              title="Xoa">
+              title="Xóa">
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -100,22 +100,22 @@
         <div class="flex items-center justify-between gap-4">
           <div>
             <h3 class="text-xl font-bold uppercase tracking-tight text-slate-900 dark:text-white">
-              {{ editingId ? 'Cau Hinh Man Hinh' : 'Tao Man Hinh Moi' }}
+              {{ editingId ? 'Cấu Hình Màn Hình' : 'Tạo Màn Hình Mới' }}
             </h3>
             <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-              Keo tha de sap xep thu tu phat. {{ getPlaylistDurationLabel() }}.
+              Kéo thả để sắp xếp thứ tự phát. {{ getPlaylistDurationLabel() }}.
             </p>
           </div>
           <div class="flex items-center gap-3">
             <button
               (click)="cancel()"
               class="rounded-xl px-4 py-2 text-xs font-bold uppercase tracking-wider text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white">
-              Huy
+              Hủy
             </button>
             <button
               (click)="save()"
               class="rounded-xl bg-brand-primary px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-brand-primary/20 transition-colors hover:bg-brand-primary-hover">
-              Luu
+              Lưu
             </button>
           </div>
         </div>
@@ -123,17 +123,17 @@
         <div class="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
           <label class="block">
             <span class="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Ten man hinh
+              Tên màn hình
             </span>
             <input
               [(ngModel)]="profileName"
               type="text"
               class="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-lg font-bold text-slate-900 shadow-sm transition-colors focus:border-brand-primary focus:outline-none dark:border-white/10 dark:bg-black/30 dark:text-white"
-              placeholder="Vi du: menu-tang-1" />
+              placeholder="Ví dụ: menu-tang-1" />
           </label>
 
           <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 dark:border-white/10 dark:bg-black/30 dark:text-slate-400">
-            Link phat: <span class="font-mono">{{ getPlayerUrl(profileName || 'man-hinh-moi') }}</span>
+            Link phát: <span class="font-mono">{{ getPlayerUrl(profileName || 'man-hinh-moi') }}</span>
           </div>
         </div>
       </div>
@@ -176,7 +176,7 @@
               Kho Video
             </span>
             <span class="rounded-md bg-slate-100 px-2 py-1 text-[10px] text-slate-400 dark:bg-white/10">
-              Chon de them vao playlist
+              Chọn để thêm vào playlist
             </span>
           </div>
 
@@ -208,10 +208,10 @@
           class="relative flex h-full w-full flex-1 flex-col bg-slate-100 dark:bg-transparent md:flex">
           <div class="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3 dark:border-white/5 dark:bg-white/5">
             <span class="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">
-              Playlist Phat
+              Playlist Phát
             </span>
             <span class="text-xs font-medium text-brand-primary">
-              Keo tha de sap xep
+              Kéo thả để sắp xếp
             </span>
           </div>
 
@@ -240,7 +240,7 @@
               <button
                 (click)="removeFromPlaylist(i)"
                 class="rounded-lg p-2 text-slate-300 transition-colors hover:bg-red-500/10 hover:text-red-500"
-                title="Xoa khoi playlist">
+                title="Xóa khỏi playlist">
                 <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -257,9 +257,9 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p class="font-medium">Playlist trong</p>
+              <p class="font-medium">Playlist trống</p>
               <p class="mt-1 max-w-[14rem] text-center text-xs text-slate-400">
-                Chon video o cot ben trai de tao playlist.
+                Chọn video ở cột bên trái để tạo playlist.
               </p>
             </div>
           </div>
@@ -276,9 +276,9 @@
 
   <app-confirm-modal
     [isOpen]="!!deletingProfileId"
-    title="Xoa Man Hinh?"
-    message="Hanh dong nay se xoa cau hinh man hinh. Video van duoc giu lai trong kho."
-    confirmText="Xoa Man Hinh"
+    title="Xóa Màn Hình?"
+    message="Hành động này sẽ xóa cấu hình màn hình. Video vẫn được giữ lại trong kho."
+    confirmText="Xóa Màn Hình"
     (confirm)="confirmDelete()"
     (cancel)="cancelDelete()">
   </app-confirm-modal>
