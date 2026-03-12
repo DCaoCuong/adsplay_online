@@ -42,41 +42,6 @@
         background: #000;
       }
 
-      #overlay {
-        position: absolute;
-        top: 12px;
-        left: 12px;
-        right: 12px;
-        z-index: 20;
-        pointer-events: none;
-      }
-
-      #title {
-        display: inline-block;
-        margin: 0 0 8px 0;
-        padding: 8px 12px;
-        background: rgba(0, 0, 0, 0.72);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        font-size: 20px;
-        font-weight: bold;
-      }
-
-      #status,
-      #detail,
-      #warning {
-        display: inline-block;
-        clear: both;
-        margin: 0 0 8px 0;
-        padding: 8px 12px;
-        background: rgba(0, 0, 0, 0.72);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        font-size: 14px;
-      }
-
-      #warning {
-        color: #ffd166;
-      }
-
       #empty {
         position: absolute;
         top: 50%;
@@ -111,26 +76,15 @@
     <div id="app">
       <video id="video" autoplay playsinline webkit-playsinline></video>
 
-      <div id="overlay">
-        <div id="title">AdPlay Legacy Player</div>
-        <div id="status">Dang khoi dong...</div>
-        <div id="detail" class="hidden"></div>
-        <div id="warning" class="hidden"></div>
-      </div>
-
       <div id="empty" class="hidden">
         <h1 id="empty-title">AdPlay Legacy Player</h1>
-        <p id="empty-message">Dang tai noi dung...</p>
+        <p id="empty-message"></p>
       </div>
     </div>
 
     <script>
       (function () {
         var video = document.getElementById('video');
-        var title = document.getElementById('title');
-        var status = document.getElementById('status');
-        var detail = document.getElementById('detail');
-        var warning = document.getElementById('warning');
         var empty = document.getElementById('empty');
         var emptyTitle = document.getElementById('empty-title');
         var emptyMessage = document.getElementById('empty-message');
@@ -161,23 +115,15 @@
         }
 
         function setStatus(message) {
-          if (status) {
-            status.innerHTML = message;
-          }
+          return message;
         }
 
         function setDetail(message) {
-          if (detail) {
-            detail.innerHTML = message || '';
-            showElement(detail, !!message);
-          }
+          return message;
         }
 
         function setWarning(message) {
-          if (warning) {
-            warning.innerHTML = message || '';
-            showElement(warning, !!message);
-          }
+          return message;
         }
 
         function showEmpty(message, heading) {
@@ -352,10 +298,6 @@
             line = line + ' | ' + currentVideo.originalName;
           }
 
-          if (title) {
-            title.innerHTML = line;
-          }
-
           document.title = line;
         }
 
@@ -446,39 +388,25 @@
 
         function loadProfile(isInitialLoad) {
           if (!state.profileSlug) {
-            showEmpty('Dung link "TV cu" trong trang quan tri de mo player nay.', 'Can link cu the');
-            setStatus('Khong tim thay slug man hinh.');
-            setDetail('Hay mo lai link tu dashboard.');
+            showEmpty('Mo lai link TV cu tu trang quan tri.', 'Link khong hop le');
             return;
-          }
-
-          if (isInitialLoad) {
-            showEmpty('Dang tai playlist cho man hinh ' + state.profileSlug + '...', 'Dang tai');
-            setStatus('Dang tai playlist...');
-          } else {
-            setStatus('Dang dong bo playlist...');
           }
 
           request('GET', buildProfileUrl(state.profileSlug), null, null, function (statusCode, responseText) {
             var payload;
 
             if (statusCode !== 200) {
-              showEmpty('Khong tai duoc playlist tu may chu.', 'Khong the ket noi');
-              setStatus('Loi tai playlist.');
-              setDetail('Ma trang thai: ' + statusCode);
+              showEmpty('Khong tai duoc noi dung tu may chu.', 'Loi ket noi');
               return;
             }
 
             payload = parseJson(responseText);
             if (!payload || !payload.videos || typeof payload.videos.length !== 'number') {
-              showEmpty('Du lieu playlist tra ve khong hop le.', 'Du lieu loi');
-              setStatus('Playlist khong hop le.');
-              setDetail('');
+              showEmpty('Noi dung hien tai khong kha dung.', 'Khong the phat');
               return;
             }
 
             hideEmpty();
-            setWarning(state.token ? '' : 'Link nay khong co token heartbeat. TV van phat duoc, nhung dashboard se khong bao online.');
             applyProfile(payload);
           });
         }

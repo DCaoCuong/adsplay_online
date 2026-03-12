@@ -51,9 +51,6 @@ export class PlayerSessionService {
   };
 
   private readonly onNetworkRestoreBound = () => {
-    this.zone.run(() => {
-      this.statusMessage.set('Kết nối đã phục hồi. Đang đồng bộ lại playlist.');
-    });
     this.heartbeatFailures = 0;
     if (!this.heartbeatInterval) {
       this.startHeartbeat();
@@ -61,11 +58,7 @@ export class PlayerSessionService {
     this.triggerManualSync();
   };
 
-  private readonly onNetworkLostBound = () => {
-    this.zone.run(() => {
-      this.statusMessage.set('Mất kết nối tới máy chủ. Player sẽ tiếp tục phát nếu dữ liệu đã cache.');
-    });
-  };
+  private readonly onNetworkLostBound = () => undefined;
 
   initialize() {
     this.isFullscreen.set(!!document.fullscreenElement);
@@ -165,7 +158,6 @@ export class PlayerSessionService {
   }
 
   onVideoError() {
-    this.statusMessage.set('Không tải được video hiện tại. Đang chuyển sang mục tiếp theo.');
     this.onVideoEnded();
   }
 
@@ -272,7 +264,6 @@ export class PlayerSessionService {
         this.heartbeatFailures += 1;
         if (this.heartbeatFailures >= 5) {
           this.stopHeartbeat();
-          this.statusMessage.set('Không gửi được heartbeat. Đang tạm dừng đồng bộ nền.');
         }
       },
     });
@@ -367,7 +358,7 @@ export class PlayerSessionService {
     if (!this.shouldCacheVideo(video)) {
       this.releaseCurrentObjectUrl();
       this.localVideoUrl.set(serverUrl);
-      this.statusMessage.set(video.processingStatus === 'ready' ? null : 'Video đang được xử lý, đang phát trực tiếp từ server.');
+      this.statusMessage.set(null);
       void this.prefetchUpcomingVideo(index);
       return;
     }
@@ -379,7 +370,6 @@ export class PlayerSessionService {
       if (!response) {
         response = await fetch(serverUrl);
         if (!response.ok) {
-          this.statusMessage.set('Video đã bị gỡ khỏi server. Đang đồng bộ lại playlist.');
           this.triggerManualSync();
           this.next();
           return;
@@ -411,7 +401,6 @@ export class PlayerSessionService {
 
       this.releaseCurrentObjectUrl();
       this.localVideoUrl.set(serverUrl);
-      this.statusMessage.set('Đang phát trực tiếp từ server vì cache không khả dụng.');
     }
   }
 
@@ -431,7 +420,7 @@ export class PlayerSessionService {
         }
       }
     } catch {
-      this.statusMessage.set('Không thể dọn dẹp cache cục bộ lúc này.');
+      return;
     }
   }
 
@@ -465,9 +454,8 @@ export class PlayerSessionService {
       try {
         await this.videoElement.play();
         this.showUnmuteOverlay.set(true);
-        this.statusMessage.set('Trình duyệt yêu cầu chạm một lần để bật âm thanh.');
       } catch {
-        this.statusMessage.set('Không thể tự động phát video này.');
+        this.showUnmuteOverlay.set(true);
       }
     }
   }
@@ -480,7 +468,6 @@ export class PlayerSessionService {
     this.videoElement.muted = false;
     void this.videoElement.play();
     this.showUnmuteOverlay.set(false);
-    this.statusMessage.set(null);
   }
 
   private shouldCacheVideo(video: Video) {

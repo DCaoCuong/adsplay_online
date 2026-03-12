@@ -6,7 +6,7 @@
     </div>
     }
 
-    @if (session.statusMessage()) {
+    @if (session.statusMessage() && !session.profile()) {
     <div
         class="absolute top-4 left-4 z-[80] max-w-sm rounded-2xl border border-white/10 bg-black/50 px-4 py-3 text-xs font-medium text-slate-200 backdrop-blur-xl">
         {{ session.statusMessage() }}
@@ -14,7 +14,7 @@
     }
 
     @if (session.loading()) {
-    <div class="flex flex-col items-center space-y-8 animate-fade-in relative z-10">
+    <div class="flex flex-col items-center animate-fade-in relative z-10">
         <div class="relative w-24 h-24">
             <div class="absolute inset-0 border-4 border-white/10 rounded-full"></div>
             <div
@@ -22,7 +22,6 @@
             </div>
             <div class="absolute inset-4 bg-brand-primary/20 rounded-full animate-pulse-glow"></div>
         </div>
-        <div class="text-brand-primary text-2xl font-bold tracking-[0.3em] uppercase animate-pulse">ADsPlay...</div>
     </div>
     }
 
@@ -98,25 +97,22 @@
     <div (click)="session.interact()"
         class="absolute inset-0 z-[70] bg-black/60 flex flex-col items-center justify-center cursor-pointer animate-fade-in group/overlay">
         <div
-            class="w-20 h-20 rounded-full bg-white/10 border border-white/30 flex items-center justify-center mb-6 group-hover/overlay:scale-110 group-hover/overlay:bg-brand-primary group-hover/overlay:border-brand-primary transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.1)]">
+            class="w-20 h-20 rounded-full bg-white/10 border border-white/30 flex items-center justify-center group-hover/overlay:scale-110 group-hover/overlay:bg-brand-primary group-hover/overlay:border-brand-primary transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.1)]">
             <svg class="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
             </svg>
         </div>
-        <h2 class="text-white text-xl font-bold uppercase tracking-[0.2em] animate-pulse">
-            Chạm Để Phóng To
-        </h2>
-        <p class="text-slate-300 mt-2 text-xs font-medium tracking-wide opacity-80">
-            Chế độ hiển thị toàn màn hình
-        </p>
     </div>
     }
 
     @if (session.showUnmuteOverlay()) {
     <div
-        class="absolute bottom-6 left-1/2 z-[80] -translate-x-1/2 rounded-full bg-black/70 px-4 py-2 text-xs font-bold uppercase tracking-[0.2em] text-white backdrop-blur-xl">
-        Chạm để bật tiếng
+        class="absolute bottom-6 left-1/2 z-[80] -translate-x-1/2 rounded-full bg-black/70 p-3 text-white backdrop-blur-xl">
+        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M11 5L6 9H3v6h3l5 4V5zm5.707 1.293a1 1 0 010 1.414A7 7 0 0119 12a7 7 0 01-2.293 5.293 1 1 0 11-1.414-1.414A5 5 0 0017 12a5 5 0 00-1.707-3.879 1 1 0 010-1.414z" />
+        </svg>
     </div>
     }
 
