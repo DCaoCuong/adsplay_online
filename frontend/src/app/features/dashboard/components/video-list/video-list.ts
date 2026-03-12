@@ -94,6 +94,14 @@ export class VideoList {
     return video.streamVariant === 'optimized' ? 'Sẵn sàng HD' : 'Sẵn sàng bản gốc';
   }
 
+  getPosterUrl(video: Video) {
+    return `/api/videos/${video.id}/poster?v=${encodeURIComponent(video.updatedAt)}`;
+  }
+
+  getPreviewUrl(video: Video) {
+    return `/api/videos/${video.id}/stream?v=${encodeURIComponent(video.updatedAt)}`;
+  }
+
   getMaxUploadSizeLabel() {
     return `${(this.maxUploadSizeBytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
   }

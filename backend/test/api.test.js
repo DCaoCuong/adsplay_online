@@ -23,6 +23,7 @@ process.env.MAX_UPLOAD_SIZE_MB = '512';
 process.env.MEDIA_TRANSCODE_ENABLED = 'false';
 
 const { createApp } = require('../dist/app');
+const { dbRepository } = require('../dist/db');
 
 const app = createApp();
 const resumableChunkSizeBytes = 8 * 1024 * 1024;
@@ -306,4 +307,48 @@ test('missing video files return a clean app error', async () => {
 
   assert.equal(streamResponse.status, 404);
   assert.equal(streamResponse.body.error.code, 'VIDEO_FILE_NOT_FOUND');
+});
+
+test('poster and HLS asset routes serve generated media artifacts when metadata exists', async () => {
+  const { authHeader } = await loginAsAdmin();
+
+  const uploadResponse = await request(app)
+    .post('/api/videos')
+    .set(authHeader)
+    .attach('video', Buffer.from('fake mp4 content'), {
+      contentType: 'video/mp4',
+      filename: 'artifacts.mp4',
+    });
+
+  const posterRelativePath = path.join('processed', 'posters', `${uploadResponse.body.id}.jpg`);
+  const hlsManifestRelativePath = path.join('processed', 'hls', uploadResponse.body.id, 'playlist.m3u8');
+  const hlsSegmentRelativePath = path.join('processed', 'hls', uploadResponse.body.id, 'segment-000.ts');
+
+  await fs.outputFile(path.join(process.env.UPLOADS_DIR, posterRelativePath), Buffer.from('poster'));
+  await fs.outputFile(
+    path.join(process.env.UPLOADS_DIR, hlsManifestRelativePath),
+    '#EXTM3U\n#EXTINF:6,\nsegment-000.ts\n#EXT-X-ENDLIST\n',
+  );
+  await fs.outputFile(path.join(process.env.UPLOADS_DIR, hlsSegmentRelativePath), Buffer.from('segment'));
+
+  await dbRepository.updateVideo(uploadResponse.body.id, (draft) => {
+    draft.posterFilename = posterRelativePath;
+    draft.hlsManifestPath = hlsManifestRelativePath;
+  });
+
+  const posterResponse = await request(app).get(`/api/videos/${uploadResponse.body.id}/poster`);
+  assert.equal(posterResponse.status, 200);
+  assert.equal(posterResponse.headers['content-type'], 'image/jpeg');
+
+  const manifestResponse = await request(app).get(`/api/videos/${uploadResponse.body.id}/hls/playlist.m3u8`);
+  assert.equal(manifestResponse.status, 200);
+  assert.match(manifestResponse.text, /#EXTM3U/);
+  assert.equal(
+    manifestResponse.headers['content-type'],
+    'application/vnd.apple.mpegurl',
+  );
+
+  const segmentResponse = await request(app).get(`/api/videos/${uploadResponse.body.id}/hls/segment-000.ts`);
+  assert.equal(segmentResponse.status, 200);
+  assert.equal(segmentResponse.headers['content-type'], 'video/mp2t');
 });

@@ -105,6 +105,48 @@ export const getVideoStreamFile = async (id: string) => {
     };
 };
 
+export const getVideoPosterFile = async (id: string) => {
+    const video = await getVideoById(id);
+
+    if (!video.posterFilename) {
+        throw new AppError(404, 'VIDEO_POSTER_NOT_FOUND', 'Video poster is not available.');
+    }
+
+    const absolutePath = path.join(config.uploadsDir, video.posterFilename);
+    if (!(await fs.pathExists(absolutePath))) {
+        throw new AppError(404, 'VIDEO_POSTER_NOT_FOUND', 'Video poster is missing from disk.');
+    }
+
+    return {
+        absolutePath,
+        video,
+    };
+};
+
+export const getVideoHlsAssetFile = async (id: string, assetName: string) => {
+    const video = await getVideoById(id);
+
+    if (!video.hlsManifestPath) {
+        throw new AppError(404, 'VIDEO_HLS_NOT_FOUND', 'HLS stream is not available for this video.');
+    }
+
+    const safeAssetName = path.basename(assetName);
+    if (safeAssetName !== assetName) {
+        throw new AppError(400, 'VIDEO_HLS_ASSET_INVALID', 'HLS asset path is invalid.');
+    }
+
+    const hlsDirectory = path.dirname(video.hlsManifestPath);
+    const absolutePath = path.join(config.uploadsDir, hlsDirectory, safeAssetName);
+    if (!(await fs.pathExists(absolutePath))) {
+        throw new AppError(404, 'VIDEO_HLS_ASSET_NOT_FOUND', 'Requested HLS asset is missing from disk.');
+    }
+
+    return {
+        absolutePath,
+        video,
+    };
+};
+
 export const deleteVideo = async (id: string) => {
     const video = await dbRepository.findVideoById(id);
     if (!video) {
@@ -115,6 +157,14 @@ export const deleteVideo = async (id: string) => {
         path.join(config.uploadsDir, video.filename),
         path.join(config.uploadsDir, video.sourceFilename),
     ]);
+
+    if (video.posterFilename) {
+        filePaths.add(path.join(config.uploadsDir, video.posterFilename));
+    }
+
+    if (video.hlsManifestPath) {
+        filePaths.add(path.join(config.uploadsDir, path.dirname(video.hlsManifestPath)));
+    }
 
     for (const filePath of filePaths) {
         if (await fs.pathExists(filePath)) {

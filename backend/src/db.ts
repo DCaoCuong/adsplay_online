@@ -20,11 +20,13 @@ const normalizeVideo = (video: Partial<Video>): Video => {
     return {
         createdAt: video.createdAt || timestamp,
         filename: video.filename || '',
+        hlsManifestPath: video.hlsManifestPath,
         durationSeconds: video.durationSeconds,
         height: video.height,
         id: video.id || createEntityId(),
         mimeType: video.mimeType,
         originalName: video.originalName || '',
+        posterFilename: video.posterFilename,
         processingError: video.processingError,
         processingStatus: video.processingStatus || 'ready',
         sourceFilename: video.sourceFilename || video.filename || '',

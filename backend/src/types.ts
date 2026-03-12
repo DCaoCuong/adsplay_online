@@ -5,10 +5,12 @@ export type UploadSessionStatus = 'uploading' | 'assembling' | 'completed';
 export interface Video {
     createdAt: string;
     filename: string;
+    hlsManifestPath?: string;
     id: string;
     height?: number;
     mimeType?: string;
     originalName: string;
+    posterFilename?: string;
     processingError?: string;
     processingStatus: VideoProcessingStatus;
     sourceFilename: string;

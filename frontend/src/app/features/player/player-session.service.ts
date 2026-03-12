@@ -2,6 +2,13 @@ import { Injectable, NgZone, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService, PlayerProfile, PlayerProfileSummary, Video } from '../../services/api.service';
 
+interface PlaybackSource {
+  hlsUrl: string | null;
+  loadToken: number;
+  mp4Url: string;
+  posterUrl: string;
+}
+
 @Injectable()
 export class PlayerSessionService {
   private static readonly MAX_CACHEABLE_VIDEO_BYTES = 120 * 1024 * 1024;
@@ -19,6 +26,7 @@ export class PlayerSessionService {
   readonly showUnmuteOverlay = signal(false);
   readonly isCursorHidden = signal(false);
   readonly isVideoPortrait = signal(false);
+  readonly currentVideoPosterUrl = signal('');
   readonly localVideoUrl = signal('');
   readonly statusMessage = signal<string | null>(null);
 
@@ -27,14 +35,25 @@ export class PlayerSessionService {
   private currentObjectUrl: string | null = null;
   private activityTimeout: number | null = null;
   private heartbeatInterval: number | null = null;
+  private hlsInstance: {
+    attachMedia(media: HTMLMediaElement): void;
+    destroy(): void;
+    loadSource(source: string): void;
+    on(event: string, handler: (...args: unknown[]) => void): void;
+  } | null = null;
   private autoReloadInterval: number | null = null;
   private playlistSyncInterval: number | null = null;
   private endedSafetyTimeout: number | null = null;
   private heartbeatFailures = 0;
   private isPlaylistUpdated = false;
   private activeLoadToken = 0;
+  private activePlayback: PlaybackSource | null = null;
+  private activePlaybackMode: 'hls' | 'mp4' | null = null;
+  private hasTriedMp4Fallback = false;
+  private pendingPlayback: PlaybackSource | null = null;
   private playerAccessToken: string | null = null;
   private readonly prefetchingUrls = new Set<string>();
+  private hlsLibraryPromise: Promise<typeof import('hls.js').default> | null = null;
 
   private readonly onFullscreenChangeBound = () => {
     this.zone.run(() => {
@@ -103,6 +122,8 @@ export class PlayerSessionService {
       this.releaseCurrentObjectUrl();
     }
 
+    this.destroyHls();
+
     if (this.videoElement) {
       this.videoElement.pause();
       this.videoElement.src = '';
@@ -111,7 +132,16 @@ export class PlayerSessionService {
   }
 
   attachVideoElement(element: HTMLVideoElement | null) {
+    if (this.videoElement === element) {
+      return;
+    }
+
+    this.destroyHls();
     this.videoElement = element;
+
+    if (element && this.pendingPlayback) {
+      void this.applyPlayback(this.pendingPlayback);
+    }
   }
 
   attachContainerElement(element: HTMLDivElement | null) {
@@ -130,9 +160,13 @@ export class PlayerSessionService {
     this.stopPlaylistSync();
     this.profile.set(null);
     this.showUnmuteOverlay.set(false);
+    this.currentVideoPosterUrl.set('');
     this.releaseCurrentObjectUrl();
     this.localVideoUrl.set('');
     this.statusMessage.set(null);
+    this.pendingPlayback = null;
+    this.activePlayback = null;
+    this.destroyHls();
     this.loadAllProfiles();
   }
 
@@ -158,6 +192,11 @@ export class PlayerSessionService {
   }
 
   onVideoError() {
+    if (this.activePlaybackMode === 'hls' && this.activePlayback && !this.hasTriedMp4Fallback) {
+      void this.fallbackToMp4(this.activePlayback);
+      return;
+    }
+
     this.onVideoEnded();
   }
 
@@ -188,8 +227,12 @@ export class PlayerSessionService {
     this.playerAccessToken = null;
     this.profile.set(null);
     this.showUnmuteOverlay.set(false);
+    this.currentVideoPosterUrl.set('');
     this.releaseCurrentObjectUrl();
     this.localVideoUrl.set('');
+    this.pendingPlayback = null;
+    this.activePlayback = null;
+    this.destroyHls();
     void this.router.navigate(['/player']);
   }
 
@@ -328,6 +371,9 @@ export class PlayerSessionService {
           void this.syncCacheWithBackend(profile.videos);
           void this.loadAndPlayVideo(0);
         } else {
+          this.currentVideoPosterUrl.set('');
+          this.pendingPlayback = null;
+          this.activePlayback = null;
           this.localVideoUrl.set('');
           this.statusMessage.set('Playlist hiện tại không có nội dung.');
         }
@@ -353,12 +399,32 @@ export class PlayerSessionService {
 
     const video = activeProfile.videos[index];
     const serverUrl = this.api.getVideoStreamUrl(video);
+    const posterUrl = video.posterFilename ? this.api.getVideoPosterUrl(video) : '';
+    const hlsUrl =
+      video.processingStatus === 'ready' && video.hlsManifestPath
+        ? this.api.getVideoHlsManifestUrl(video)
+        : null;
     const loadToken = ++this.activeLoadToken;
+
+    if (hlsUrl) {
+      this.releaseCurrentObjectUrl();
+      await this.applyPlayback({
+        hlsUrl,
+        loadToken,
+        mp4Url: serverUrl,
+        posterUrl,
+      });
+      return;
+    }
 
     if (!this.shouldCacheVideo(video)) {
       this.releaseCurrentObjectUrl();
-      this.localVideoUrl.set(serverUrl);
-      this.statusMessage.set(null);
+      await this.applyPlayback({
+        hlsUrl: null,
+        loadToken,
+        mp4Url: serverUrl,
+        posterUrl,
+      });
       void this.prefetchUpcomingVideo(index);
       return;
     }
@@ -391,8 +457,12 @@ export class PlayerSessionService {
 
       this.releaseCurrentObjectUrl();
       this.currentObjectUrl = URL.createObjectURL(blob);
-      this.localVideoUrl.set(this.currentObjectUrl);
-      this.statusMessage.set(null);
+      await this.applyPlayback({
+        hlsUrl: null,
+        loadToken,
+        mp4Url: this.currentObjectUrl,
+        posterUrl,
+      });
       void this.prefetchUpcomingVideo(index);
     } catch {
       if (loadToken !== this.activeLoadToken) {
@@ -400,7 +470,12 @@ export class PlayerSessionService {
       }
 
       this.releaseCurrentObjectUrl();
-      this.localVideoUrl.set(serverUrl);
+      await this.applyPlayback({
+        hlsUrl: null,
+        loadToken,
+        mp4Url: serverUrl,
+        posterUrl,
+      });
     }
   }
 
@@ -528,6 +603,113 @@ export class PlayerSessionService {
     this.currentObjectUrl = null;
   }
 
+  private destroyHls() {
+    if (!this.hlsInstance) {
+      return;
+    }
+
+    this.hlsInstance.destroy();
+    this.hlsInstance = null;
+  }
+
+  private async loadHlsLibrary() {
+    this.hlsLibraryPromise ??= import('hls.js').then((module) => module.default);
+    return this.hlsLibraryPromise;
+  }
+
+  private async applyPlayback(playback: PlaybackSource) {
+    if (playback.loadToken !== this.activeLoadToken) {
+      return;
+    }
+
+    this.pendingPlayback = playback;
+    this.activePlayback = playback;
+    this.currentVideoPosterUrl.set(playback.posterUrl);
+    this.statusMessage.set(null);
+    this.hasTriedMp4Fallback = false;
+
+    if (playback.hlsUrl) {
+      if (!this.videoElement) {
+        this.localVideoUrl.set('');
+        this.activePlaybackMode = 'hls';
+        return;
+      }
+
+      if (this.videoElement.canPlayType('application/vnd.apple.mpegurl')) {
+        this.destroyHls();
+        this.activePlaybackMode = 'hls';
+        this.localVideoUrl.set(playback.hlsUrl);
+        this.videoElement.src = playback.hlsUrl;
+        this.videoElement.load();
+        return;
+      }
+
+      const Hls = await this.loadHlsLibrary().catch(() => null);
+      if (Hls?.isSupported()) {
+        this.destroyHls();
+        this.activePlaybackMode = 'hls';
+        this.localVideoUrl.set('');
+        this.videoElement.removeAttribute('src');
+        this.videoElement.load();
+
+        const hlsInstance = new Hls();
+        this.hlsInstance = hlsInstance;
+
+        hlsInstance.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data.fatal || playback.loadToken !== this.activeLoadToken) {
+            return;
+          }
+
+          void this.fallbackToMp4(playback);
+        });
+
+        hlsInstance.on(Hls.Events.MEDIA_ATTACHED, () => {
+          if (playback.loadToken !== this.activeLoadToken) {
+            return;
+          }
+
+          hlsInstance.loadSource(playback.hlsUrl as string);
+        });
+
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (playback.loadToken !== this.activeLoadToken) {
+            return;
+          }
+
+          void this.playVideo();
+        });
+
+        hlsInstance.attachMedia(this.videoElement);
+        return;
+      }
+    }
+
+    this.applyMp4Playback(playback);
+  }
+
+  private applyMp4Playback(playback: PlaybackSource) {
+    this.destroyHls();
+    this.activePlaybackMode = 'mp4';
+    this.localVideoUrl.set(playback.mp4Url);
+
+    if (this.videoElement) {
+      this.videoElement.src = playback.mp4Url;
+      this.videoElement.load();
+    }
+  }
+
+  private async fallbackToMp4(playback: PlaybackSource) {
+    if (this.hasTriedMp4Fallback || playback.loadToken !== this.activeLoadToken) {
+      return;
+    }
+
+    this.hasTriedMp4Fallback = true;
+    await this.applyPlayback({
+      ...playback,
+      hlsUrl: null,
+    });
+  }
+
   private next() {
     const activeProfile = this.profile();
     if (!activeProfile?.videos?.length) {
@@ -538,6 +720,7 @@ export class PlayerSessionService {
     if (this.isPlaylistUpdated) {
       this.isPlaylistUpdated = false;
       this.currentVideoIndex.set(0);
+      this.currentVideoPosterUrl.set('');
       void this.loadAndPlayVideo(0);
       return;
     }

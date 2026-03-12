@@ -102,6 +102,12 @@ Default local login:
 3. Open that address in the TV or tablet browser
 4. Choose a profile and start playback
 
+If the TV has an old browser, use the legacy link from the dashboard:
+
+```text
+http://192.168.1.50:3000/player-legacy/profile-name?token=...
+```
+
 Example:
 
 ```text
@@ -114,6 +120,8 @@ http://192.168.1.50:3000/player
 - The first tap on a TV may be needed to enable sound or fullscreen
 - Large uploads may continue in chunks if the network is unstable
 - Videos may be optimized in the background after upload
+- AdPlay also creates poster images for the admin library when processing succeeds
+- The modern player prefers HLS playback automatically and falls back to direct MP4 streaming if needed
 
 ---
 
@@ -130,6 +138,7 @@ http://192.168.1.50:3000/player
 - Make sure the TV is on the same Wi-Fi/LAN
 - Use the host computer's local IP, not `localhost`
 - Check whether your firewall is blocking local access
+- If the TV browser is very old, use the legacy player link from the dashboard instead of the standard player
 
 ### Upload feels slow
 
@@ -282,7 +291,8 @@ Important backend files:
 5. Backend may optimize the video in the background with FFmpeg
 6. Admin creates profiles and assigns videos to them
 7. A player device opens `/player/:profileSlug`
-8. The player requests profile data and streams each video from the backend
+8. The player requests profile data and prefers HLS playback when available
+9. If HLS is unavailable or unsupported, the player falls back to direct file streaming from the backend
 
 ### Storage model
 
@@ -313,11 +323,14 @@ AdPlay now has a more complete media pipeline than a simple single POST upload.
 - optimization happens in-process in the current server
 - if the optimized file is smaller and usable, AdPlay serves it
 - if optimization is worse, AdPlay keeps the original file
+- the backend also generates a poster image for the admin media library
+- the backend also generates a single-variant HLS playlist for the modern player when processing succeeds
 
 ### Streaming
 
-- playback uses `/api/videos/:id/stream`
-- the backend supports HTTP range requests
+- modern playback prefers `/api/videos/:id/hls/playlist.m3u8`
+- playback falls back to `/api/videos/:id/stream` when HLS is not available
+- the backend supports HTTP range requests for direct file streaming
 - small ready videos may be cached by the player
 - large videos stream directly to avoid wasting browser memory
 
@@ -326,9 +339,9 @@ AdPlay now has a more complete media pipeline than a simple single POST upload.
 This is a strong local-first media pipeline, but it is still not a full media platform:
 
 - no distributed job queue
-- no HLS/DASH adaptive streaming
+- no multi-bitrate adaptive HLS/DASH ladder
 - no object storage / CDN integration
-- no thumbnail sprite generation
+- no thumbnail sprite generation for seek previews
 
 ---
 
@@ -441,8 +454,8 @@ Common things people may want to add:
 - SQLite or Postgres instead of `db.json`
 - per-screen device registration
 - multi-user admin roles
-- HLS output for larger deployments
-- thumbnails and media previews
+- adaptive HLS bitrate ladder for weaker networks
+- thumbnail sprites / seek previews
 - audit logs and analytics
 
 ---

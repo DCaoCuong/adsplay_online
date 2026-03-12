@@ -10,7 +10,9 @@ import {
     createStoredUploadFilename,
     deleteVideo,
     getVideoById,
+    getVideoHlsAssetFile,
     getVideoPolicy,
+    getVideoPosterFile,
     getVideoStreamFile,
     listVideos,
     saveUploadedVideo,
@@ -30,6 +32,13 @@ import { requireNonEmptyString } from '../utils/validation';
 const config = getConfig();
 const MAX_FILE_SIZE = config.maxUploadSizeBytes;
 const allowedMimeTypes = getVideoPolicy().allowedMimeTypes;
+
+const contentTypeByExtension: Record<string, string> = {
+    '.m3u8': 'application/vnd.apple.mpegurl',
+    '.m4s': 'video/iso.segment',
+    '.mp4': 'video/mp4',
+    '.ts': 'video/mp2t',
+};
 
 const storage = multer.diskStorage({
     destination: (_req, _file, cb) => {
@@ -220,6 +229,34 @@ videoRouter.get(
         res.setHeader('Content-Length', end - start + 1);
         res.setHeader('Content-Range', `bytes ${start}-${end}/${stats.size}`);
         fs.createReadStream(absolutePath, { end, start }).pipe(res);
+    }),
+);
+
+videoRouter.get(
+    '/:id/poster',
+    asyncHandler(async (req, res) => {
+        const { absolutePath, video } = await getVideoPosterFile(requireNonEmptyString(req.params.id, 'id'));
+
+        res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.setHeader('ETag', `${video.id}:${video.updatedAt}:poster`);
+        res.sendFile(absolutePath);
+    }),
+);
+
+videoRouter.get(
+    '/:id/hls/:assetName',
+    asyncHandler(async (req, res) => {
+        const { absolutePath, video } = await getVideoHlsAssetFile(
+            requireNonEmptyString(req.params.id, 'id'),
+            requireNonEmptyString(req.params.assetName, 'assetName'),
+        );
+        const extension = path.extname(absolutePath).toLowerCase();
+
+        res.setHeader('Cache-Control', 'public, max-age=86400, immutable');
+        res.setHeader('Content-Type', contentTypeByExtension[extension] || 'application/octet-stream');
+        res.setHeader('ETag', `${video.id}:${video.updatedAt}:hls:${path.basename(absolutePath)}`);
+        res.sendFile(absolutePath);
     }),
 );
 

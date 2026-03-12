@@ -8,9 +8,11 @@ export interface Video {
     durationSeconds?: number;
     id: string;
     filename: string;
+    hlsManifestPath?: string;
     height?: number;
     mimeType?: string;
     originalName: string;
+    posterFilename?: string;
     processingError?: string;
     processingStatus: 'pending' | 'processing' | 'ready';
     sourceFilename: string;
@@ -188,5 +190,13 @@ export class ApiService {
 
     getVideoStreamUrl(video: Pick<Video, 'id' | 'updatedAt'>): string {
         return `${this.apiUrl}/videos/${video.id}/stream?v=${encodeURIComponent(video.updatedAt)}`;
+    }
+
+    getVideoPosterUrl(video: Pick<Video, 'id' | 'updatedAt'>): string {
+        return `${this.apiUrl}/videos/${video.id}/poster?v=${encodeURIComponent(video.updatedAt)}`;
+    }
+
+    getVideoHlsManifestUrl(video: Pick<Video, 'id' | 'updatedAt'>): string {
+        return `${this.apiUrl}/videos/${video.id}/hls/playlist.m3u8?v=${encodeURIComponent(video.updatedAt)}`;
     }
 }
