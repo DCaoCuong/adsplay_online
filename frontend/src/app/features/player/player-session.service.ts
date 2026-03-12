@@ -9,6 +9,8 @@ interface PlaybackSource {
   posterUrl: string;
 }
 
+const PLAYER_TOKEN_STORAGE_PREFIX = 'adsplay-player-token:';
+
 @Injectable()
 export class PlayerSessionService {
   private static readonly MAX_CACHEABLE_VIDEO_BYTES = 120 * 1024 * 1024;
@@ -149,7 +151,9 @@ export class PlayerSessionService {
   }
 
   handleRoute(profileSlug?: string, playerAccessToken?: string | null) {
-    this.playerAccessToken = playerAccessToken || null;
+    this.playerAccessToken = profileSlug
+      ? this.resolvePlayerAccessToken(profileSlug, playerAccessToken)
+      : null;
 
     if (profileSlug) {
       this.loadProfileBySlug(profileSlug);
@@ -303,7 +307,12 @@ export class PlayerSessionService {
       next: () => {
         this.heartbeatFailures = 0;
       },
-      error: () => {
+      error: (error: { status?: number }) => {
+        if (error?.status === 400 || error?.status === 403 || error?.status === 404) {
+          this.clearStoredPlayerAccessToken(profile.slug);
+          this.playerAccessToken = null;
+        }
+
         this.heartbeatFailures += 1;
         if (this.heartbeatFailures >= 5) {
           this.stopHeartbeat();
@@ -610,6 +619,72 @@ export class PlayerSessionService {
 
     this.hlsInstance.destroy();
     this.hlsInstance = null;
+  }
+
+  private resolvePlayerAccessToken(profileSlug: string, routeToken?: string | null) {
+    const normalizedRouteToken = routeToken?.trim() || '';
+    if (normalizedRouteToken) {
+      this.storePlayerAccessToken(profileSlug, normalizedRouteToken);
+      this.stripTokenFromUrl();
+      return normalizedRouteToken;
+    }
+
+    return this.getStoredPlayerAccessToken(profileSlug);
+  }
+
+  private getStoredPlayerAccessToken(profileSlug: string) {
+    if (typeof localStorage === 'undefined' || !profileSlug) {
+      return null;
+    }
+
+    try {
+      return localStorage.getItem(`${PLAYER_TOKEN_STORAGE_PREFIX}${profileSlug}`);
+    } catch {
+      return null;
+    }
+  }
+
+  private storePlayerAccessToken(profileSlug: string, playerAccessToken: string) {
+    if (typeof localStorage === 'undefined' || !profileSlug || !playerAccessToken) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(`${PLAYER_TOKEN_STORAGE_PREFIX}${profileSlug}`, playerAccessToken);
+    } catch {
+      return;
+    }
+  }
+
+  private clearStoredPlayerAccessToken(profileSlug: string) {
+    if (typeof localStorage === 'undefined' || !profileSlug) {
+      return;
+    }
+
+    try {
+      localStorage.removeItem(`${PLAYER_TOKEN_STORAGE_PREFIX}${profileSlug}`);
+    } catch {
+      return;
+    }
+  }
+
+  private stripTokenFromUrl() {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      const currentUrl = new URL(window.location.href);
+      if (!currentUrl.searchParams.has('token')) {
+        return;
+      }
+
+      currentUrl.searchParams.delete('token');
+      const nextUrl = `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+      window.history.replaceState(window.history.state, document.title, nextUrl);
+    } catch {
+      return;
+    }
   }
 
   private async loadHlsLibrary() {

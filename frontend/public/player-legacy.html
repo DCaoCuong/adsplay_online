@@ -169,6 +169,77 @@
           }
         }
 
+        function getPlayerTokenStorageKey(slug) {
+          return 'adsplay-player-token:' + String(slug || '');
+        }
+
+        function getStoredToken(slug) {
+          try {
+            if (!window.localStorage || !slug) {
+              return '';
+            }
+
+            return window.localStorage.getItem(getPlayerTokenStorageKey(slug)) || '';
+          } catch (error) {
+            return '';
+          }
+        }
+
+        function storeToken(slug, token) {
+          try {
+            if (!window.localStorage || !slug || !token) {
+              return;
+            }
+
+            window.localStorage.setItem(getPlayerTokenStorageKey(slug), token);
+          } catch (error) {
+            return;
+          }
+        }
+
+        function clearStoredToken(slug) {
+          try {
+            if (!window.localStorage || !slug) {
+              return;
+            }
+
+            window.localStorage.removeItem(getPlayerTokenStorageKey(slug));
+          } catch (error) {
+            return;
+          }
+        }
+
+        function stripTokenFromUrl() {
+          var search = window.location.search || '';
+          var query = search.charAt(0) === '?' ? search.substring(1) : search;
+          var parts = query ? query.split('&') : [];
+          var kept = [];
+          var index;
+          var pair;
+          var key;
+          var nextSearch;
+          var nextUrl;
+
+          if (!window.history || typeof window.history.replaceState !== 'function') {
+            return;
+          }
+
+          for (index = 0; index < parts.length; index += 1) {
+            pair = parts[index].split('=');
+            key = decodeValue(pair[0]);
+            if (key && key !== 'token') {
+              kept.push(parts[index]);
+            }
+          }
+
+          nextSearch = kept.length ? '?' + kept.join('&') : '';
+          nextUrl = (window.location.pathname || '') + nextSearch + (window.location.hash || '');
+
+          if (nextUrl !== (window.location.pathname || '') + (window.location.search || '') + (window.location.hash || '')) {
+            window.history.replaceState(null, document.title, nextUrl);
+          }
+        }
+
         function getProfileSlug() {
           var pathname = window.location.pathname || '';
           var marker = '/player-legacy/';
@@ -428,6 +499,11 @@
                 return;
               }
 
+              if (statusCode === 400 || statusCode === 403 || statusCode === 404) {
+                clearStoredToken(state.profileSlug);
+                state.token = '';
+              }
+
               setWarning('TV van dang phat, nhung heartbeat tam thoi khong gui duoc.');
             }
           );
@@ -453,6 +529,13 @@
         function init() {
           state.profileSlug = getProfileSlug();
           state.token = parseQueryValue('token');
+
+          if (state.token) {
+            storeToken(state.profileSlug, state.token);
+            stripTokenFromUrl();
+          } else {
+            state.token = getStoredToken(state.profileSlug);
+          }
 
           if (video) {
             video.autoplay = true;

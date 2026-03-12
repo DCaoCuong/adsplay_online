@@ -102,6 +102,8 @@ Default local login:
 3. Open that address in the TV or tablet browser
 4. Choose a profile and start playback
 
+On first open, AdPlay pairs that browser automatically for heartbeat and then removes the token from the visible address bar.
+
 If the TV has an old browser, use the legacy link from the dashboard:
 
 ```text
@@ -122,6 +124,7 @@ http://192.168.1.50:3000/player
 - Videos may be optimized in the background after upload
 - AdPlay also creates poster images for the admin library when processing succeeds
 - The modern player prefers HLS playback automatically and falls back to direct MP4 streaming if needed
+- After the first successful open, the player keeps its pairing token locally so the visible TV URL stays clean
 
 ---
 
@@ -139,6 +142,7 @@ http://192.168.1.50:3000/player
 - Use the host computer's local IP, not `localhost`
 - Check whether your firewall is blocking local access
 - If the TV browser is very old, use the legacy player link from the dashboard instead of the standard player
+- If a screen stops showing as online, open its dashboard link once more to refresh the local pairing token
 
 ### Upload feels slow
 

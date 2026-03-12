@@ -174,16 +174,24 @@ export class ProfileManager {
   }
 
   getProfilePlayerUrl(profile: Profile) {
-    return this.buildPlayerUrl('player', profile.slug, profile.playerAccessToken);
+    return this.buildPlayerUrl('player', profile.slug);
+  }
+
+  getProfilePlayerPairingUrl(profile: Profile) {
+    return this.buildPlayerUrl('player', profile.slug, profile.playerAccessToken, true);
   }
 
   getLegacyPlayerUrl(profile: Profile) {
-    return this.buildPlayerUrl('player-legacy', profile.slug, profile.playerAccessToken);
+    return this.buildPlayerUrl('player-legacy', profile.slug);
   }
 
-  private buildPlayerUrl(pathPrefix: 'player' | 'player-legacy', slug: string, playerAccessToken?: string) {
+  getLegacyPlayerPairingUrl(profile: Profile) {
+    return this.buildPlayerUrl('player-legacy', profile.slug, profile.playerAccessToken, true);
+  }
+
+  private buildPlayerUrl(pathPrefix: 'player' | 'player-legacy', slug: string, playerAccessToken?: string, includeToken = false) {
     if (typeof window === 'undefined') {
-      const tokenQuery = playerAccessToken ? `?token=${encodeURIComponent(playerAccessToken)}` : '';
+      const tokenQuery = includeToken && playerAccessToken ? `?token=${encodeURIComponent(playerAccessToken)}` : '';
       return `/${pathPrefix}/${slug}${tokenQuery}`;
     }
 
@@ -194,7 +202,7 @@ export class ProfileManager {
       url.hostname = this.localIps[0];
     }
 
-    if (playerAccessToken) {
+    if (includeToken && playerAccessToken) {
       url.searchParams.set('token', playerAccessToken);
     }
 

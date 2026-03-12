@@ -67,18 +67,22 @@ describe('ProfileManager', () => {
     const component = new ProfileManager();
     component.localIps = ['192.168.1.25'];
 
-    const url = new URL(
-      component.getLegacyPlayerUrl(
-        profile({
-          name: 'Lobby Screen',
-          playerAccessToken: 'legacy-token',
-          slug: 'lobby-screen',
-        }),
-      ),
-    );
+    const cleanUrl = new URL(component.getLegacyPlayerUrl(profile({
+      name: 'Lobby Screen',
+      playerAccessToken: 'legacy-token',
+      slug: 'lobby-screen',
+    })));
+    const pairingUrl = new URL(component.getLegacyPlayerPairingUrl(profile({
+      name: 'Lobby Screen',
+      playerAccessToken: 'legacy-token',
+      slug: 'lobby-screen',
+    })));
 
-    expect(url.hostname).toBe('192.168.1.25');
-    expect(url.pathname).toBe('/player-legacy/lobby-screen');
-    expect(url.searchParams.get('token')).toBe('legacy-token');
+    expect(cleanUrl.hostname).toBe('192.168.1.25');
+    expect(cleanUrl.pathname).toBe('/player-legacy/lobby-screen');
+    expect(cleanUrl.searchParams.get('token')).toBeNull();
+
+    expect(pairingUrl.pathname).toBe('/player-legacy/lobby-screen');
+    expect(pairingUrl.searchParams.get('token')).toBe('legacy-token');
   });
 });
