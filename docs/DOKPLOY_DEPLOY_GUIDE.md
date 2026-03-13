@@ -41,5 +41,24 @@ RESUMABLE_CHUNK_SIZE_MB=8
 - Hệ thống đã cấu hình 2 volume: `adplay-uploads` và `adplay-db`. 
 - Khi anh xóa app hoặc redeploy, video và dữ liệu sẽ KHÔNG bị mất nhờ 2 volume này quản lý độc lập.
 
+## 7. Tận dụng GitHub Actions (CI/CD) - KHUYẾN KHÍCH 🚀
+Thay vì build trực tiếp trên VPS (tốn tài nguyên), chúng ta dùng GitHub Actions để mang "thùng container" sang.
+
+### Bước A: Push code
+- Đẩy code lên GitHub. GitHub Actions sẽ tự động build image (mất 2-4 phút).
+- Kiểm tra tại tab **Actions** trên GitHub.
+
+### Bước B: Cấu hình Dokploy dùng Image
+1. **Registry:** Đảm bảo anh đã thêm Registry `ghcr.io` vào Dokploy.
+2. **Environment Variable:** Thêm biến sau vào tab Environment trên Dokploy:
+   ```env
+   GITHUB_REPOSITORY_LOWER=dcaocuong/adsplay_online
+   ```
+3. **Deploy:** Nhấn nút **Deploy** trên Dokploy. Dokploy sẽ thấy lệnh `image` trong `docker-compose.yml` và tự động pull về thay vì build.
+
+### 💡 Lợi ích:
+- VPS của anh sẽ không bị lag/treo khi cập nhật code.
+- Thời gian cập nhật chỉ mất khoảng 10-20 giây.
+
 ---
 Xong rồi đó anh! Chúc anh triển khai thành công rực rỡ! 🎯

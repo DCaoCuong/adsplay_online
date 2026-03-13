@@ -11,10 +11,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET}
-      - ADMIN_USERNAME=${ADMIN_USERNAME}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
-      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-2048}
+      - JWT_SECRET
+      - ADMIN_USERNAME
+      - ADMIN_PASSWORD
+      - MAX_UPLOAD_SIZE_MB
+      - GITHUB_REPOSITORY_LOWER
     volumes:
       - adplay-uploads:/app/uploads
       - adplay-db:/app/data
