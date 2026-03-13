@@ -29,6 +29,13 @@ export class Admin implements OnInit {
     return `${url.origin}/player`;
   });
 
+  readonly currentDomain = computed(() => {
+    if (typeof window === 'undefined') {
+      return 'adsplay.caocuong.tech';
+    }
+    return window.location.hostname;
+  });
+
   activeTab: 'videos' | 'profiles' = 'videos';
   isMobileMenuOpen = signal(false);
   videoDeletingId = signal<string | null>(null);
