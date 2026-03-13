@@ -23,6 +23,7 @@ const knownEnvKeys = [
     'MAX_UPLOAD_SIZE_MB',
     'MEDIA_TRANSCODE_ENABLED',
     'RESUMABLE_CHUNK_SIZE_MB',
+    'HOST_IP',
 ];
 const skipDirNames = new Set(['.angular', '.git', 'dist', 'node_modules', 'uploads']);
 const args = new Set(process.argv.slice(2));
@@ -108,6 +109,7 @@ const ensureManagedEnvFile = () => {
     ensureValue('MAX_UPLOAD_SIZE_MB', '2048');
     ensureValue('MEDIA_TRANSCODE_ENABLED', 'true');
     ensureValue('RESUMABLE_CHUNK_SIZE_MB', '8');
+    ensureValue('HOST_IP', '');
 
     const outputLines = [
         '# AdPlay local settings',
@@ -276,19 +278,40 @@ const ensureDependencies = async (directory, label) => {
     await runNpmCommand(`Installing ${label} dependencies`, ['install', '--no-fund', '--no-audit'], directory);
 };
 
-const getLocalIpv4Addresses = () => {
-    const addresses = [];
+const getLocalIpv4Addresses = (preferredIp) => {
     const networkInterfaces = os.networkInterfaces();
+    const addresses = [];
+    const virtualKeywords = ['vmware', 'virtualbox', 'vbox', 'vethernet', 'hyper-v', 'pseudo', 'teredo', 'tunnel'];
 
-    for (const interfaces of Object.values(networkInterfaces)) {
-        for (const address of interfaces || []) {
-            if (address.family === 'IPv4' && !address.internal && !addresses.includes(address.address)) {
-                addresses.push(address.address);
+    // If a valid preferred IP is provided and exists, put it first
+    if (preferredIp) {
+        for (const interfaces of Object.values(networkInterfaces)) {
+            if (interfaces?.some(addr => addr.address === preferredIp)) {
+                return [preferredIp];
             }
         }
     }
 
-    return addresses;
+    const physicalAddresses = [];
+    const otherAddresses = [];
+
+    for (const [name, interfaces] of Object.entries(networkInterfaces)) {
+        const lowerName = name.toLowerCase();
+        const isVirtual = virtualKeywords.some(keyword => lowerName.includes(keyword));
+
+        for (const address of interfaces || []) {
+            if (address.family === 'IPv4' && !address.internal) {
+                if (isVirtual) {
+                    otherAddresses.push(address.address);
+                } else {
+                    physicalAddresses.push(address.address);
+                }
+            }
+        }
+    }
+
+    // Prioritize physical (Wi-Fi/Ethernet) then virtual
+    return [...new Set([...physicalAddresses, ...otherAddresses])];
 };
 
 const writeAccessFile = ({ adminPassword, adminUsername, localIps, port }) => {
@@ -304,9 +327,9 @@ const writeAccessFile = ({ adminPassword, adminUsername, localIps, port }) => {
         ...(
             localIps.length
                 ? localIps.map((ip, index) => {
-                      const label = index === 0 ? 'Player link for TVs/tablets' : 'Player link (alternate IP)';
-                      return `${label}: http://${ip}:${port}/player`;
-                  })
+                    const label = index === 0 ? 'Player link for TVs/tablets' : 'Player link (alternate IP)';
+                    return `${label}: http://${ip}:${port}/player`;
+                })
                 : [`Player link: http://localhost:${port}/player`]
         ),
         '',
@@ -430,7 +453,7 @@ const main = async () => {
 
     const envState = ensureManagedEnvFile();
     const port = Number.parseInt(envState.values.PORT || '3000', 10) || 3000;
-    const localIps = getLocalIpv4Addresses();
+    const localIps = getLocalIpv4Addresses(envState.values.HOST_IP);
 
     if (envState.created) {
         console.log(`Created ${path.relative(rootDir, envFilePath)} with local app settings.`);
