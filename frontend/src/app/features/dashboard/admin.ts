@@ -23,11 +23,9 @@ export class Admin implements OnInit {
     }
 
     const url = new URL(window.location.origin);
-    const localIp = this.store.systemInfo()?.localIps?.[0];
-    if (localIp) {
-      url.hostname = localIp;
-    }
-
+    // REMOVED: Logic that forced internal IP.
+    // We now use the same domain/IP you are using to access the dashboard.
+    
     return `${url.origin}/player`;
   });
 

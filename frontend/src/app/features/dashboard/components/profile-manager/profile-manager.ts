@@ -198,9 +198,8 @@ export class ProfileManager {
     const url = new URL(window.location.origin);
     url.pathname = `/${pathPrefix}/${slug}`;
 
-    if (this.localIps[0]) {
-      url.hostname = this.localIps[0];
-    }
+    // REMOVED: Auto host replacement with local IP.
+    // The link will now use the same domain/IP you use to access this dashboard.
 
     if (includeToken && playerAccessToken) {
       url.searchParams.set('token', playerAccessToken);
