@@ -104,13 +104,14 @@ export const getConfig = (): AppConfig => {
     const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, '../uploads');
     const processedUploadsDir = path.join(uploadsDir, 'processed');
     const uploadSessionsDir = path.join(uploadsDir, '.sessions');
-    const dbFile = process.env.DB_FILE || path.join(__dirname, '../db.json');
+    const dbFile = process.env.DB_FILE || path.join(__dirname, '../data/db.json');
     const frontendDistDir =
         process.env.FRONTEND_DIST_DIR || path.join(__dirname, '../../frontend/dist/frontend/browser');
 
     fs.ensureDirSync(uploadsDir);
     fs.ensureDirSync(processedUploadsDir);
     fs.ensureDirSync(uploadSessionsDir);
+    fs.ensureDirSync(path.dirname(dbFile));
 
     cachedConfig = {
         adminPassword,

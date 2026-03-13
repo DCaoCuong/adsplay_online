@@ -10,13 +10,13 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - JWT_SECRET=${JWT_SECRET:-change-me-please-very-secret}
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
-      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin}
-      - MAX_UPLOAD_SIZE_MB=2048
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_USERNAME=${ADMIN_USERNAME}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - MAX_UPLOAD_SIZE_MB=${MAX_UPLOAD_SIZE_MB:-2048}
     volumes:
-      - ./backend/uploads:/app/uploads
-      - ./backend/db.json:/app/db.json
+      - adplay-uploads:/app/uploads
+      - adplay-db:/app/data
     networks:
       - adplay-network
 
@@ -26,12 +26,14 @@ services:
       dockerfile: Dockerfile
     container_name: adplay-frontend
     restart: always
-    ports:
-      - "8080:80"
     depends_on:
       - backend
     networks:
       - adplay-network
+
+volumes:
+  adplay-uploads:
+  adplay-db:
 
 networks:
   adplay-network:

@@ -121,7 +121,10 @@ const ensurePosterPath = (videoId: string) =>
 
 const ensureHlsDir = (videoId: string) => path.join(config.processedUploadsDir, 'hls', videoId);
 
-const toUploadsRelativePath = (absolutePath: string) => path.relative(config.uploadsDir, absolutePath);
+const toUploadsRelativePath = (absolutePath: string) => {
+    const relativePath = path.relative(config.uploadsDir, absolutePath);
+    return relativePath.split(path.sep).join('/');
+};
 
 const createPoster = async (sourcePath: string, outputPath: string) => {
     const ffmpegBinary = getRequiredBinary(ffmpegPath, 'ffmpeg');
